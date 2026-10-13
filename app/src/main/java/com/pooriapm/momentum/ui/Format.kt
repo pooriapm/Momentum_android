@@ -26,6 +26,48 @@ fun jalaliLabel(iso: String): String {
     return "${d.fa()} ${JALALI_MONTHS[m - 1]} ${y.fa()}"
 }
 
+val jalaliMonths: List<String> get() = JALALI_MONTHS
+
+fun jalaliMonthLength(jy: Int, jm: Int): Int = when {
+    jm <= 6 -> 31
+    jm <= 11 -> 30
+    else -> if (jalaliToIso(jy, 12, 30).let { toJalali(LocalDate.parse(it)) == Triple(jy, 12, 30) }) 30 else 29
+}
+
+private fun toJalali(date: LocalDate) = toJalali(date.year, date.monthValue, date.dayOfMonth)
+
+fun todayJalali(): Triple<Int, Int, Int> = toJalali(LocalDate.now())
+
+/** Jalali y/m/d → Gregorian ISO date, which is what the server stores. */
+fun jalaliToIso(jy: Int, jm: Int, jd: Int): String {
+    val jy2 = jy + 1595
+    var days = -355668 + 365 * jy2 + (jy2 / 33) * 8 + ((jy2 % 33) + 3) / 4 + jd +
+        if (jm < 7) (jm - 1) * 31 else (jm - 7) * 30 + 186
+    var gy = 400 * (days / 146097)
+    days %= 146097
+    if (days > 36524) {
+        days--
+        gy += 100 * (days / 36524)
+        days %= 36524
+        if (days >= 365) days++
+    }
+    gy += 4 * (days / 1461)
+    days %= 1461
+    if (days > 365) {
+        gy += (days - 1) / 365
+        days = (days - 1) % 365
+    }
+    var gd = days + 1
+    val leap = (gy % 4 == 0 && gy % 100 != 0) || gy % 400 == 0
+    val monthDays = intArrayOf(0, 31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    var gm = 1
+    while (gm <= 12 && gd > monthDays[gm]) {
+        gd -= monthDays[gm]
+        gm++
+    }
+    return "%04d-%02d-%02d".format(java.util.Locale.ROOT, gy, gm, gd)
+}
+
 // Standard Gregorian → Jalali conversion (same arithmetic as jalaali-js).
 private fun toJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
     val gDaysInMonth = intArrayOf(0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
@@ -43,3 +85,7 @@ private fun toJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
     val jd = 1 + if (days < 186) days % 31 else (days - 186) % 30
     return Triple(jy, jm, jd)
 }
+
+/** Gregorian ISO date → Jalali (year, month, day), or null when it does not parse. */
+fun isoToJalali(iso: String?): Triple<Int, Int, Int>? =
+    iso?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }?.let { toJalali(it) }

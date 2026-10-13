@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,10 +34,14 @@ fun SignInScreen(state: AppState) {
         modifier = Modifier.fillMaxSize().imePadding().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, androidx.compose.ui.Alignment.CenterVertically),
     ) {
-        Text("Momentum", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
+        Text("Momentum", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
         Text(
-            if (create) "یک ماه غذا و تمرین، چیده‌شده برای خودت. حسابت را بساز." else "به برنامه‌ات خوش برگشتی.",
-            style = MaterialTheme.typography.bodyLarge,
+            if (create) "یک ماه غذا و تمرین، چیده‌شده برای خودت." else "به برنامه‌ات خوش برگشتی.",
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            if (create) "حسابت را بساز؛ چند سؤال کوتاه بعدی، برنامه ۳۰ روزه‌ات را می‌سازد." else "با همان حساب سایت وارد شو.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = email,
@@ -60,7 +65,7 @@ fun SignInScreen(state: AppState) {
         Button(
             onClick = { state.signIn(email, password, create) },
             enabled = !state.loading && email.contains('@') && password.length >= 8,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
         ) {
             if (state.loading) CircularProgressIndicator(strokeWidth = 2.dp) else Text(if (create) "ساخت حساب" else "ورود")
         }

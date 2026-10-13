@@ -15,17 +15,36 @@ C:\Users\poori\
 
 ## What the app does
 
-| Tab | Content |
+| Screen | Content |
 | --- | --- |
 | Sign in | Email + password, same accounts as the website |
-| امروز (Today) | Today's targets, meals (mark done / undo) and workout |
-| برنامه (Plan) | All 30 days of the current plan, Jalali dates |
-| پیشرفت (Progress) | Weekly adherence and recorded weight |
-| حساب من (Me) | Membership status and purchase through Cafe Bazaar |
+| Onboarding | ~20 short screens: goal, body, health screening, food, training, consents, review, then the plan is built |
+| امروز (Today) | Calories and macros eaten vs target, next step, daily check-in, meals (pick option, mark eaten, recipe sheet), workout |
+| برنامه (Plan) | 30-day calendar strip and the chosen day's meals and workout |
+| پیشرفت (Progress) | Weekly adherence bars and weight trend from check-ins |
+| حساب من (Me) | Membership (Cafe Bazaar), safety, privacy, terms, sign out |
 
-Everything is right-to-left and in Persian, with Persian digits and Jalali dates.
-First-time setup (the onboarding questionnaire) currently opens on the website;
-the plan then shows up in the app.
+Everything is right-to-left Persian with the Vazirmatn typeface, Persian digits and Jalali dates.
+
+### Onboarding
+
+Answers use the website's keys and are saved after every screen to the same
+`onboarding_drafts` row, so a user can start on the phone and finish on the website
+(or the other way round). The final step runs `complete-onboarding` and
+`generate-monthly-plan` exactly like the website. Health answers that need a
+professional (urgent symptoms, pregnancy, eating-disorder risk, high-risk conditions)
+stop automatic planning, as on the website.
+
+Not in the app yet (still on the website): importing an outside plan and uploading a
+body-composition report.
+
+### Design system
+
+Material 3 components with the website's dark tokens: one question per screen with
+a determinate progress bar and a pinned primary button, selectable cards and chips with
+TalkBack roles, segmented buttons for yes/no and 1–5 scores, bottom sheets for meal
+detail and check-in, a Jalali date picker (the M3 date picker is Gregorian only), and
+48dp+ touch targets. Shared pieces live in `ui/components/Components.kt`.
 
 ## Payments
 
@@ -86,8 +105,11 @@ app/src/main/java/com/pooriapm/momentum/
 ├── data/Api.kt            Supabase auth (GoTrue REST) + Edge Function calls
 ├── data/Models.kt         dashboard response models
 ├── billing/BazaarBilling.kt   Poolakey purchase → server verify → consume
-└── ui/                    Compose screens, theme, Persian formatting
+├── onboarding/            questionnaire model, state and screens
+└── ui/                    tabs, sheets, components, theme, Persian formatting
 ```
+
+Fonts: Vazirmatn (SIL Open Font License, `licenses/Vazirmatn-OFL.txt`).
 
 No automated tests by design: the goal is a fast launch to see whether people
 use the app. Verify changes by building and running it.

@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 
 // Same tokens as the website's dark theme (Momentum/src/styles/theme.css).
 val Background = Color(0xFF0E0D0B)
@@ -40,6 +41,13 @@ private val colors = darkColorScheme(
 @Composable
 fun MomentumTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = colors, content = content)
+        MaterialTheme(colorScheme = colors, typography = MomentumTypography, shapes = MomentumShapes, content = content)
     }
 }
+
+// Rounder corners than the M3 default, matching the website's soft cards.
+val MomentumShapes = androidx.compose.material3.Shapes(
+    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+)

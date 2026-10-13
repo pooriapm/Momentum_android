@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -15,7 +16,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.pooriapm.momentum.billing.BazaarBilling
 import com.pooriapm.momentum.data.Api
+import com.pooriapm.momentum.onboarding.OnboardingScreen
 import com.pooriapm.momentum.ui.AppState
+import com.pooriapm.momentum.ui.Centered
 import com.pooriapm.momentum.ui.HomeScreen
 import com.pooriapm.momentum.ui.Screen
 import com.pooriapm.momentum.ui.SignInScreen
@@ -42,6 +45,8 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
                     when (state.screen) {
                         Screen.SignIn -> SignInScreen(state)
+                        Screen.Loading -> Centered { CircularProgressIndicator() }
+                        Screen.Onboarding -> state.onboarding?.let { OnboardingScreen(it) }
                         Screen.Home -> HomeScreen(state, billing)
                     }
                 }

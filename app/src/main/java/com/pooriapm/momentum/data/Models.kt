@@ -11,6 +11,7 @@ data class Dashboard(
     @SerialName("local_date") val localDate: String,
     val profile: Profile,
     @SerialName("entitlement_usage") val entitlementUsage: EntitlementUsage? = null,
+    val checkin: Checkin? = null,
     val plan: Plan? = null,
     @SerialName("recent_checkins") val recentCheckins: List<Checkin> = emptyList(),
     @SerialName("progress_series") val progressSeries: List<ProgressPoint> = emptyList(),
@@ -20,6 +21,7 @@ data class Dashboard(
 data class Profile(
     @SerialName("display_name") val displayName: String,
     @SerialName("onboarding_status") val onboardingStatus: String,
+    @SerialName("email_confirmed") val emailConfirmed: Boolean? = null,
 )
 
 @Serializable
@@ -65,7 +67,9 @@ data class Workout(
     val title: String,
     @SerialName("duration_minutes") val durationMinutes: Int,
     val intensity: String,
+    val warmup: List<String> = emptyList(),
     val exercises: List<Exercise> = emptyList(),
+    val cooldown: List<String> = emptyList(),
     @SerialName("safety_note") val safetyNote: String? = null,
 )
 
@@ -75,6 +79,9 @@ data class Exercise(
     val sets: Int,
     val reps: String,
     @SerialName("rest_seconds") val restSeconds: Int,
+    val equipment: List<String> = emptyList(),
+    @SerialName("intensity_note") val intensityNote: String? = null,
+    val substitution: String? = null,
 )
 
 @Serializable
@@ -97,6 +104,15 @@ data class MealOption(
     val title: String,
     val ingredients: List<Ingredient> = emptyList(),
     val nutrition: Nutrition,
+    val recipe: Recipe? = null,
+    val warnings: List<String> = emptyList(),
+)
+
+@Serializable
+data class Recipe(
+    @SerialName("prep_minutes") val prepMinutes: Int,
+    @SerialName("cook_minutes") val cookMinutes: Int,
+    val steps: List<String> = emptyList(),
 )
 
 @Serializable
@@ -106,6 +122,8 @@ data class Ingredient(val name: String, val amount: Double, val unit: String)
 data class Nutrition(
     val calories: Double,
     @SerialName("protein_g") val proteinG: Double,
+    @SerialName("carbs_g") val carbsG: Double = 0.0,
+    @SerialName("fat_g") val fatG: Double = 0.0,
 )
 
 @Serializable
@@ -113,6 +131,8 @@ data class Checkin(
     @SerialName("local_date") val localDate: String,
     @SerialName("weight_kg") val weightKg: Double? = null,
     @SerialName("energy_score") val energyScore: Double? = null,
+    @SerialName("sleep_minutes") val sleepMinutes: Int? = null,
+    @SerialName("adherence_percent") val adherencePercent: Double? = null,
 )
 
 @Serializable
@@ -124,4 +144,19 @@ data class ProgressPoint(
     @SerialName("workouts_completed") val workoutsCompleted: Int,
     @SerialName("workouts_planned") val workoutsPlanned: Int,
     val partial: Boolean,
+)
+
+/** Body of checkins → save-daily (camelCase, like the website's dailyCheckInInputSchema). */
+@Serializable
+data class DailyCheckin(
+    val energyScore: Int,
+    val hungerScore: Int,
+    val moodScore: Int,
+    val recoveryScore: Int,
+    val sleepMinutes: Int,
+    val painScore: Int = 0,
+    val painLocation: String? = null,
+    val weightKg: Double? = null,
+    val notes: String? = null,
+    val redFlags: List<String> = emptyList(),
 )

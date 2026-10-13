@@ -1,0 +1,144 @@
+package com.pooriapm.momentum.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.pooriapm.momentum.data.DailyCheckin
+import com.pooriapm.momentum.data.Meal
+import com.pooriapm.momentum.ui.components.DecimalField
+import com.pooriapm.momentum.ui.components.NumberStepper
+import com.pooriapm.momentum.ui.components.TextAnswer
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean, onDismiss: () -> Unit) {
+    val option = meal.chosenOption ?: return
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(meal.title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(option.title, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "${option.nutrition.calories.faRounded()} کالری · پروتئین ${option.nutrition.proteinG.faRounded()} · " +
+                    "کربوهیدرات ${option.nutrition.carbsG.faRounded()} · چربی ${option.nutrition.fatG.faRounded()} گرم",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            option.warnings.forEach { Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall) }
+            if (option.ingredients.isNotEmpty()) {
+                HorizontalDivider()
+                Text("مواد لازم", style = MaterialTheme.typography.titleMedium)
+                option.ingredients.forEach { Text("• ${it.name}: ${formatAmount(it.amount)} ${it.unit}") }
+            }
+            option.recipe?.let { recipe ->
+                HorizontalDivider()
+                Text("طرز تهیه · ${(recipe.prepMinutes + recipe.cookMinutes).fa()} دقیقه", style = MaterialTheme.typography.titleMedium)
+                recipe.steps.forEachIndexed { index, step -> Text("${(index + 1).fa()}. $step") }
+            }
+            if (editable) {
+                val done = meal.completionStatus == "completed"
+                Button(
+                    onClick = { state.toggleMeal(meal, localDate); onDismiss() },
+                    enabled = state.busyMeal == null,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) { Text(if (done) "برگرداندن ثبت" else "خوردم") }
+            }
+        }
+    }
+}
+
+private fun formatAmount(value: Double): String =
+    (if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(java.util.Locale.ROOT, value)).fa()
+
+@Composable
+private fun ScoreQuestion(label: String, low: String, high: String, value: Int, onChange: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            (1..5).forEach { score ->
+                SegmentedButton(
+                    selected = value == score,
+                    onClick = { onChange(score) },
+                    shape = SegmentedButtonDefaults.itemShape(score - 1, 5),
+                    icon = {},
+                ) { Text(score.fa()) }
+            }
+        }
+        Text("۱ = $low · ۵ = $high", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Daily check-in in a sheet: quick 1–5 taps, sleep and optional weight. Never regenerates the month. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
+    var energy by rememberSaveable { mutableIntStateOf(3) }
+    var mood by rememberSaveable { mutableIntStateOf(3) }
+    var hunger by rememberSaveable { mutableIntStateOf(3) }
+    var recovery by rememberSaveable { mutableIntStateOf(3) }
+    var sleepHours by rememberSaveable { mutableIntStateOf(7) }
+    var pain by rememberSaveable { mutableIntStateOf(0) }
+    var painWhere by rememberSaveable { mutableStateOf("") }
+    var weight by rememberSaveable { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text("چک‌این امروز", style = MaterialTheme.typography.headlineSmall)
+            ScoreQuestion("انرژی", "خیلی کم", "عالی", energy) { energy = it }
+            ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood) { mood = it }
+            ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger) { hunger = it }
+            ScoreQuestion("ریکاوری بدن", "خسته", "کاملاً آماده", recovery) { recovery = it }
+            NumberStepper("خواب دیشب", sleepHours, 0..14, "ساعت") { sleepHours = it }
+            NumberStepper("درد", pain, 0..10, "از ۱۰") { pain = it }
+            if (pain > 0) TextAnswer("کجای بدن؟", painWhere, { painWhere = it }, maxLength = 240)
+            DecimalField("وزن امروز (اختیاری)", weight, "کیلوگرم", { weight = it })
+            val canSave = pain == 0 || painWhere.isNotBlank()
+            Button(
+                onClick = {
+                    state.saveCheckin(
+                        DailyCheckin(
+                            energyScore = energy, hungerScore = hunger, moodScore = mood, recoveryScore = recovery,
+                            sleepMinutes = sleepHours * 60, painScore = pain,
+                            painLocation = painWhere.trim().ifBlank { null },
+                            weightKg = weight.toDoubleOrNull()?.takeIf { it in 20.0..500.0 },
+                        ),
+                        onDismiss,
+                    )
+                },
+                enabled = canSave && !state.savingCheckin,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            ) {
+                if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت چک‌این")
+            }
+            Text("چک‌این برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
