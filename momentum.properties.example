@@ -1,0 +1,14 @@
+# Copy to momentum.properties (git-ignored) and fill in.
+# Website, used only for setup steps the app does not have yet.
+siteUrl=https://momentum.pooria-pm.workers.dev
+
+# Same Supabase project as the website (Momentum/supabase).
+supabaseUrl=https://YOUR_PROJECT.supabase.co
+supabaseAnonKey=YOUR_PUBLIC_ANON_KEY
+
+# Cafe Bazaar developer panel → in-app billing.
+# The RSA key lets Poolakey check purchase signatures on the device; the server
+# still validates every purchase before granting membership.
+bazaarRsaKey=YOUR_BAZAAR_RSA_PUBLIC_KEY
+# Must equal BAZAAR_PRODUCT_ID on the server (consumable, 490,000 toman).
+bazaarProductId=membership_month
