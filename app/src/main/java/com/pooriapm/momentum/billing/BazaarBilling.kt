@@ -3,6 +3,7 @@ package com.pooriapm.momentum.billing
 import androidx.activity.ComponentActivity
 import com.pooriapm.momentum.BuildConfig
 import com.pooriapm.momentum.data.Api
+import com.pooriapm.momentum.data.asApi
 import ir.cafebazaar.poolakey.Connection
 import ir.cafebazaar.poolakey.Payment
 import ir.cafebazaar.poolakey.config.PaymentConfiguration
@@ -25,11 +26,12 @@ class BazaarBilling(private val activity: ComponentActivity, private val api: Ap
     private var connection: Connection? = null
 
     fun connect(onReady: () -> Unit = {}) {
-        connection = payment.connect {
+        if (BuildConfig.BAZAAR_RSA_KEY.isBlank()) return
+        connection = runCatching { payment.connect {
             connectionSucceed { onReady() }
             connectionFailed { }
             disconnected { }
-        }
+        } }.getOrNull()
     }
 
     fun disconnect() {
@@ -38,6 +40,19 @@ class BazaarBilling(private val activity: ComponentActivity, private val api: Ap
 
     fun buyMonth(onResult: (BillingResult) -> Unit) {
         val userId = api.session?.userId ?: return onResult(BillingResult.Failed("اول وارد حسابت شو."))
+        if (BuildConfig.BAZAAR_RSA_KEY.isBlank()) {
+            return onResult(BillingResult.Failed("خرید در این نسخه فعال نیست (کلید کافه‌بازار تنظیم نشده)."))
+        }
+        // Poolakey can throw if the Bazaar connection is gone; that must be a message, not a crash.
+        try {
+            startPurchase(userId, onResult)
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            onResult(BillingResult.Failed("کافه‌بازار باز نشد. مطمئن شو برنامه کافه‌بازار نصب و به‌روز است."))
+        }
+    }
+
+    private fun startPurchase(userId: String, onResult: (BillingResult) -> Unit) {
         payment.purchaseProduct(
             registry = activity.activityResultRegistry,
             request = PurchaseRequest(productId = BuildConfig.BAZAAR_PRODUCT_ID, payload = userId),
@@ -52,6 +67,11 @@ class BazaarBilling(private val activity: ComponentActivity, private val api: Ap
 
     /** Finishes purchases that were paid but not yet granted (e.g. the app closed mid-way). */
     fun recoverPendingPurchases(onGranted: () -> Unit) {
+        if (BuildConfig.BAZAAR_RSA_KEY.isBlank()) return
+        runCatching { queryPurchases(onGranted) }
+    }
+
+    private fun queryPurchases(onGranted: () -> Unit) {
         payment.getPurchasedProducts {
             querySucceed { purchases ->
                 purchases.filter { it.productId == BuildConfig.BAZAAR_PRODUCT_ID }.forEach { purchase ->
@@ -64,16 +84,22 @@ class BazaarBilling(private val activity: ComponentActivity, private val api: Ap
 
     private fun confirm(purchaseToken: String, onResult: (BillingResult) -> Unit) {
         scope.launch {
-            val result = runCatching { api.verifyBazaarPurchase(BuildConfig.BAZAAR_PRODUCT_ID, purchaseToken) }
-            result.onSuccess { periodEnd ->
+            val periodEnd = try {
+                api.verifyBazaarPurchase(BuildConfig.BAZAAR_PRODUCT_ID, purchaseToken)
+            } catch (raw: Exception) {
+                val error = raw.asApi()
+                // Not consumed: the purchase stays in Bazaar and is verified again on the next launch.
+                val hint = if (error.retryable) " خرید محفوظ است و دفعه بعد که اپ را باز کنی دوباره بررسی می‌شود." else ""
+                onResult(BillingResult.Failed(error.message.orEmpty() + hint))
+                return@launch
+            }
+            runCatching {
                 payment.consumeProduct(purchaseToken) {
                     consumeSucceed { }
                     consumeFailed { }
                 }
-                onResult(BillingResult.Granted(periodEnd))
-            }.onFailure {
-                onResult(BillingResult.Failed(it.message ?: "تأیید خرید انجام نشد. دوباره برنامه را باز کن تا خرید تکمیل شود."))
             }
+            onResult(BillingResult.Granted(periodEnd))
         }
     }
 }

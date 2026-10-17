@@ -9,9 +9,14 @@ plugins {
 
 // Server endpoints and store keys come from momentum.properties (not in git).
 // Copy momentum.properties.example and fill it in before building.
+// Read through providers so the configuration cache (on in gradle.properties) notices edits;
+// a plain File read was cached and gave Android Studio builds empty endpoints.
 val momentum = Properties().apply {
-    val file = rootProject.file("momentum.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    providers.fileContents(rootProject.layout.projectDirectory.file("momentum.properties"))
+        .asText.orNull?.let { load(it.reader()) }
+}
+if (momentum.getProperty("supabaseUrl").isNullOrBlank()) {
+    logger.warn("momentum.properties is missing or has no supabaseUrl; the app will show a setup error instead of connecting.")
 }
 fun momentumValue(key: String) = "\"${momentum.getProperty(key, "")}\""
 
@@ -75,3 +80,11 @@ dependencies {
     // Cafe Bazaar in-app billing.
     implementation("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
 }
+
+// Alias task for compatibility with standard Java task invocations like compileJava
+tasks.register("compileJava") {
+    description = "Alias for compiling sources in the debug variant."
+    group = "build"
+    dependsOn("compileDebugJavaWithJavac")
+}
+

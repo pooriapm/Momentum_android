@@ -86,6 +86,11 @@ private val sexLabels = mapOf("female" to "زن", "male" to "مرد", "undisclos
 @Composable
 fun OnboardingScreen(state: OnboardingState) {
     LaunchedEffect(Unit) { if (!state.loaded) state.load() }
+    state.loadError?.let { error ->
+        // Never start from an empty form when the saved answers could not be read.
+        com.pooriapm.momentum.ui.components.ErrorState(error, state::load)
+        return
+    }
     if (!state.loaded) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -121,7 +126,7 @@ private fun StepContent(state: OnboardingState, step: Step) {
         primaryLabel = primary,
         primaryEnabled = state.canContinue(),
         loading = state.saving,
-        error = state.error,
+        error = state.error ?: if (state.unsynced) "آخرین پاسخ‌ها هنوز در حساب ذخیره نشده‌اند؛ با قدم بعد دوباره ذخیره می‌شوند." else null,
         onPrimary = { if (step == Step.Review) state.finish() else state.next() },
     ) {
         when (step) {
@@ -474,17 +479,28 @@ private fun PlanBuildScreen(state: OnboardingState) {
             BuildPhase.Ready -> {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
                 Text("برنامه ۳۰ روزه‌ات آماده است", style = MaterialTheme.typography.headlineSmall)
+                if (state.usedStarterPlan) {
+                    Text("ساخت هوشمند فعلاً خاموش است؛ یک برنامهٔ شروع از کاتالوگ غذا و تمرین برایت فعال شد. ماه بعد از روند خودت ساخته می‌شود.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Button(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("رفتن به امروز") }
             }
             BuildPhase.Waiting -> {
                 Text("ساخت برنامه کمی بیشتر طول کشید", style = MaterialTheme.typography.headlineSmall)
                 Text("می‌توانی برنامه را ببندی؛ کار ادامه دارد و برنامه دوم ساخته نمی‌شود. وقتی آماده شد در «امروز» می‌بینی‌اش.")
                 Button(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("باشه") }
+                OutlinedButton(onClick = state::retryGeneration, modifier = Modifier.fillMaxWidth()) { Text("بررسی دوباره") }
             }
             BuildPhase.Blocked, BuildPhase.Failed -> {
                 Text(if (state.phase == BuildPhase.Blocked) "یک قدم مانده" else "ساخت برنامه انجام نشد", style = MaterialTheme.typography.headlineSmall)
                 Text(state.phaseMessage.orEmpty())
-                Button(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("ادامه") }
+                if (state.phase == BuildPhase.Failed) {
+                    // Same job key: trying again never starts a second plan.
+                    Button(onClick = state::retryGeneration, modifier = Modifier.fillMaxWidth()) { Text("تلاش دوباره") }
+                    OutlinedButton(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("بعداً") }
+                } else {
+                    Button(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("ادامه") }
+                }
             }
             else -> {
                 Text("در حال ساخت برنامه‌ات", style = MaterialTheme.typography.headlineSmall)

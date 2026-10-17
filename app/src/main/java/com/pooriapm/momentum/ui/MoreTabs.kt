@@ -142,8 +142,8 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
                     }
                     Text(
                         when {
-                            active && entitlement?.source == "gift" -> "هدیه ماه اول فعال است تا ${jalaliLabel(entitlement.periodEnd)}."
-                            active -> "فعال تا ${jalaliLabel(entitlement!!.periodEnd)}."
+                            active && entitlement.source == "gift" -> "هدیه ماه اول فعال است تا ${jalaliLabel(entitlement.periodEnd)}."
+                            active -> "فعال تا ${jalaliLabel(entitlement.periodEnd)}."
                             else -> "عضویت فعال نیست. هر ۳۰ روز عضویت، برنامه ماهانه تازه، جایگزینی وعده، فهرست خرید و روند پیشرفت را باز می‌کند."
                         },
                     )
@@ -153,13 +153,17 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
                         enabled = !buying,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         onClick = {
+                            if (!state.online) {
+                                state.message = UiMessage(com.pooriapm.momentum.data.persianError("offline", com.pooriapm.momentum.data.ErrorKind.Offline))
+                                return@Button
+                            }
                             buying = true
                             billing.buyMonth { result ->
                                 buying = false
-                                when (result) {
-                                    is BillingResult.Granted -> { state.notice = "پرداخت تأیید شد و عضویت ۳۰ روزه فعال شد."; state.refresh() }
-                                    BillingResult.Cancelled -> state.notice = "خرید لغو شد و مبلغی کم نشد."
-                                    is BillingResult.Failed -> state.error = result.message
+                                state.message = when (result) {
+                                    is BillingResult.Granted -> UiMessage("پرداخت تأیید شد و عضویت ۳۰ روزه فعال شد.", isError = false).also { state.refresh() }
+                                    BillingResult.Cancelled -> UiMessage("خرید لغو شد و مبلغی کم نشد.", isError = false)
+                                    is BillingResult.Failed -> UiMessage(result.message)
                                 }
                             }
                         },

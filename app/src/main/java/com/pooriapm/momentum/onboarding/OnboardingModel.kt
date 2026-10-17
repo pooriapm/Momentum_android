@@ -107,7 +107,11 @@ private const val PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
 
 /** Mirrors prepareCompletionValues on the website before the final save. */
 fun prepareForCompletion(input: Answers): Answers {
-    val next = input.toMutableMap()
+    // Fill defaults for anything left blank, so a stepper that shows "0" also sends "0".
+    val next = (defaultAnswers + input.filterValues { it.isNotBlank() }).toMutableMap()
+    // The app only offers the Momentum-built plan (no import path), so a choice of "external"
+    // left over from the website would silently block plan creation.
+    next["planSource"] = "momentum"
     if (next["goalType"] == "maintenance") next.remove("targetWeightKg")
     else if (next["targetWeightKg"].isNullOrBlank()) next["weightKg"]?.let { next["targetWeightKg"] = it }
 
@@ -133,4 +137,64 @@ fun prepareForCompletion(input: Answers): Answers {
     next["preferredOptionCount"] = next.int("preferredOptionCount", 3).coerceIn(1, 4).toString()
     next["adultConfirmed"] = if ((ageOf(next["birthDate"]) ?: 0) >= 18) "yes" else "no"
     return next.filterValues { it.isNotBlank() }
+}
+
+private val NUMBER = Regex("""^\d+(\.\d+)?$""")
+private val INTEGER = Regex("""^\d+$""")
+private val TIMEZONE = Regex("""^[A-Za-z0-9_+:-]+(/[A-Za-z0-9_+:-]+)*$""")
+private val WEEKDAYS = Regex("""^[0-6](,[0-6])*$""")
+private val CLOCK = Regex("""^([01]\d|2[0-3]):[0-5]\d$""")
+
+/**
+ * The server's complete_onboarding checks (Momentum/supabase/migrations, latest
+ * complete_onboarding), mirrored so a bad draft is caught on the phone with the step to fix,
+ * instead of a generic "draft invalid" from the server. Returns rule name → step to fix.
+ */
+fun serverRuleViolations(p: Answers): List<Pair<String, Step>> {
+    val v = mutableListOf<Pair<String, Step>>()
+    fun check(ok: Boolean, rule: String, step: Step) { if (!ok) v += rule to step }
+    fun text(key: String) = p[key]?.trim().orEmpty()
+    fun num(key: String) = p[key]?.takeIf { NUMBER.matches(it) }?.toDouble()
+
+    check(text("firstName").length in 1..120, "firstName", Step.Name)
+    check(ageOf(p["birthDate"]) != null && (ageOf(p["birthDate"]) ?: 0) in 0..100, "birthDate", Step.Birth)
+    check(num("heightCm")?.let { it in 120.0..230.0 } == true, "heightCm", Step.BodySize)
+    check(num("weightKg")?.let { it in 35.0..350.0 } == true, "weightKg", Step.BodySize)
+    check(p["sex"] in setOf("female", "male", "undisclosed", "other"), "sex", Step.Sex)
+    check(p["goalType"] in setOf("fat_loss", "muscle_gain", "maintenance"), "goalType", Step.Goal)
+    if (p["goalType"] != "maintenance") check(num("targetWeightKg")?.let { it in 35.0..350.0 } == true, "targetWeightKg", Step.Target)
+    check(p["dietStyle"] in setOf("omnivore", "vegetarian"), "dietStyle", Step.Diet)
+    check(p["foodBudget"].orEmpty() in setOf("", "budget", "standard", "flexible"), "foodBudget", Step.Budget)
+    check(text("workSchedule").length in 1..1000, "workSchedule", Step.Schedule)
+    check(text("favoriteFoods").length <= 4000, "favoriteFoods", Step.Foods)
+    check(text("requestedMealPattern").length in 1..500, "requestedMealPattern", Step.Meals)
+    check(text("cookingConstraints").length <= 4000, "cookingConstraints", Step.Budget)
+    check(text("groceryPreferences").length <= 4000, "groceryPreferences", Step.Budget)
+    check(p["preferredOptionCount"]?.let { INTEGER.matches(it) && it.toInt() in 1..6 } == true, "preferredOptionCount", Step.Meals)
+    val restaurant = p["restaurantMealsPerWeek"]?.takeIf { INTEGER.matches(it) }?.toInt()
+    check(restaurant != null && restaurant in 0..21, "restaurantMealsPerWeek", Step.Budget)
+    if ((restaurant ?: 0) > 0) check(text("restaurantPreferences").length in 1..4000, "restaurantPreferences", Step.Budget)
+    check(p["adultConfirmed"] in setOf("yes", "no"), "adultConfirmed", Step.Birth)
+    listOf("pregnancyOrBreastfeeding", "eatingDisorderHistory", "highRiskCondition").forEach {
+        check(p[it] in setOf("yes", "no"), it, Step.Health)
+    }
+    listOf("urgentSymptoms", "injuryLimitation").forEach { check(p[it].orEmpty() in setOf("", "yes", "no"), it, Step.Health) }
+    check(p["locale"] in setOf("fa-IR", "en-US"), "locale", Step.Review)
+    check(text("timezone").length in 1..80 && TIMEZONE.matches(p["timezone"].orEmpty()), "timezone", Step.Review)
+    listOf("termsAccepted", "privacyAccepted", "healthDataConsent").forEach { check(p[it] in setOf("yes", "true"), it, Step.Consent) }
+    check(p["country"]?.uppercase()?.matches(Regex("^[A-Z]{2}$")) == true, "country", Step.Country)
+
+    val days = p["trainingDays"]?.takeIf { INTEGER.matches(it) }?.toInt()
+    check(days != null && days in 0..7, "trainingDays", Step.TrainingDays)
+    if ((days ?: 0) > 0) {
+        check(p["trainingLocation"].orEmpty() in setOf("", "home", "gym", "outdoor"), "trainingLocation", Step.TrainingStyle)
+        check(p["trainingExperience"].orEmpty() in setOf("", "beginner", "intermediate", "advanced"), "trainingExperience", Step.TrainingStyle)
+        check(p["primaryActivity"] in setOf("strength", "crossfit", "cardio", "mixed"), "primaryActivity", Step.TrainingStyle)
+        val weekdays = p["trainingWeekdays"].orEmpty()
+        check(WEEKDAYS.matches(weekdays) && weekdays.split(',').distinct().size == days, "trainingWeekdays", Step.TrainingDays)
+        check(CLOCK.matches(p["trainingStartTime"].orEmpty()), "trainingStartTime", Step.TrainingTime)
+        check(p["trainingDuration"]?.let { INTEGER.matches(it) && it.toInt() in 10..300 } == true, "trainingDuration", Step.TrainingTime)
+        check(text("trainingAvailability").length in 1..1000, "trainingAvailability", Step.TrainingTime)
+    }
+    return v
 }

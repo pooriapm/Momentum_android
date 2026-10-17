@@ -2,6 +2,7 @@ package com.pooriapm.momentum.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -71,6 +72,15 @@ fun SignInScreen(state: AppState) {
         }
         TextButton(onClick = { create = !create; state.error = null; state.notice = null }, modifier = Modifier.fillMaxWidth()) {
             Text(if (create) "حساب داری؟ وارد شو" else "حساب نداری؟ بساز")
+        }
+        val emailReady = email.contains('@') && !state.loading
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = { state.sendAuthEmail(email, reset = true) }, enabled = emailReady) { Text("رمز را فراموش کردی؟") }
+            TextButton(onClick = { state.sendAuthEmail(email, reset = false) }, enabled = emailReady) { Text("ایمیل تأیید نیامد؟") }
+        }
+        if (!email.contains('@')) {
+            Text("برای این دو گزینه اول ایمیلت را بنویس.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
         }
     }
 }

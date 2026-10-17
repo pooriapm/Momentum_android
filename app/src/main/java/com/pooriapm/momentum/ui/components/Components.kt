@@ -24,8 +24,13 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Button
@@ -93,8 +98,8 @@ fun StepScaffold(
         ) {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    // ArrowForward is auto-mirrored, so in RTL it points right = "back".
-                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "قبلی")
+                    // Auto-mirrored: in RTL the back arrow points right (→), toward where the user came from.
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "قبلی")
                 }
             } else {
                 Spacer(Modifier.size(48.dp))
@@ -310,6 +315,58 @@ fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             content()
+        }
+    }
+}
+
+/**
+ * Full-screen error with a clear title per kind, the server's explanation, a retry when it can
+ * help, and an optional secondary action (e.g. sign out when the account has no access).
+ */
+@Composable
+fun ErrorState(
+    error: com.pooriapm.momentum.data.ApiException,
+    onRetry: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
+) {
+    val (icon, title) = when (error.kind) {
+        com.pooriapm.momentum.data.ErrorKind.Offline -> Icons.Outlined.CloudOff to "به اینترنت وصل نیستی"
+        com.pooriapm.momentum.data.ErrorKind.Timeout -> Icons.Outlined.HourglassEmpty to "پاسخ دیر رسید"
+        com.pooriapm.momentum.data.ErrorKind.NoAccess -> Icons.Outlined.Lock to "دسترسی هنوز فعال نیست"
+        com.pooriapm.momentum.data.ErrorKind.NotConfigured -> Icons.Outlined.Settings to "اپ تنظیم نشده"
+        else -> Icons.Outlined.ErrorOutline to "مشکلی پیش آمد"
+    }
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(error.message.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        if (error.retryable || error.kind == com.pooriapm.momentum.data.ErrorKind.NoAccess) {
+            Button(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("تلاش دوباره") }
+        }
+        if (secondaryLabel != null && onSecondary != null) {
+            androidx.compose.material3.TextButton(onClick = onSecondary) { Text(secondaryLabel) }
+        }
+    }
+}
+
+/** Thin banner pinned to the top while there is no internet; writes are blocked until it returns. */
+@Composable
+fun OfflineBanner(online: Boolean) {
+    androidx.compose.animation.AnimatedVisibility(visible = !online) {
+        Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.CloudOff, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("آفلاین هستی؛ برای ثبت تغییرها دوباره به اینترنت وصل شو.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+            }
         }
     }
 }

@@ -46,6 +46,29 @@ TalkBack roles, segmented buttons for yes/no and 1–5 scores, bottom sheets for
 detail and check-in, a Jalali date picker (the M3 date picker is Gregorian only), and
 48dp+ touch targets. Shared pieces live in `ui/components/Components.kt`.
 
+### Sign-in session
+
+- Tokens are stored encrypted with an AES-GCM key from the Android Keystore (`data/SessionStore.kt`).
+- The one-hour access token is refreshed automatically before it expires; a 401 triggers one
+  refresh and one retry. Refreshes are serialized because Supabase refresh tokens are single-use.
+- A session lasts **180 days after its last use**, and every use slides the window forward. It
+  ends only after 6 months of inactivity, when the server rejects the refresh token, or on sign-out
+  (which also revokes the token on the server). Losing the network never signs anyone out.
+- Server-side, refresh tokens do not expire by default; a hard server-side cap would need the
+  Supabase "time-box sessions" setting.
+
+### Error handling
+
+- Every failure becomes an `ApiException` with an `ErrorKind` (offline, timeout, session expired,
+  no access, not found, conflict, rate limited, invalid, server) and a Persian message (`data/Errors.kt`).
+- Reads and idempotent writes (those with an `Idempotency-Key`) retry up to 3 times with exponential
+  backoff and honour `Retry-After`; other writes never retry.
+- A connectivity monitor shows an offline banner and blocks writes while offline; the app reloads
+  by itself when the connection returns and refreshes stale data when it comes to the foreground.
+- Screens show a full-screen error with a retry, snackbars offer “try again” for retryable errors,
+  and a `CoroutineExceptionHandler` turns any unexpected coroutine error into a message.
+- Debug builds log error kinds and codes (never tokens or personal data) under the `MomentumApi` tag.
+
 ## Payments
 
 One consumable in-app product (`membership_month`, 490,000 toman) = 30 days of
