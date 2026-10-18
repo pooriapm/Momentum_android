@@ -26,6 +26,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 sealed interface Screen {
     data object SignIn : Screen
@@ -37,7 +39,12 @@ sealed interface Screen {
 /** A message for the user; [retry] is offered as an action when trying again can help. */
 data class UiMessage(val text: String, val retry: (() -> Unit)? = null, val isError: Boolean = true)
 
-class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel() {
+class AppState(
+    val api: Api,
+    private val connectivity: Connectivity,
+    /** Rebuilds local reminders after data changes (null in previews). */
+    private val onPlanChanged: ((Dashboard?, Boolean) -> Unit)? = null,
+) : ViewModel() {
     var screen by mutableStateOf<Screen>(if (api.session != null) Screen.Loading else Screen.SignIn)
         private set
     var dashboard by mutableStateOf<Dashboard?>(null)
@@ -101,6 +108,11 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
     private val scope: CoroutineScope get() = CoroutineScope(viewModelScope.coroutineContext + guard)
 
     init {
+        scope.launch {
+            snapshotFlow { dashboard to (workout?.status == "completed") }
+                .distinctUntilChanged()
+                .collect { (data, workoutDone) -> onPlanChanged?.invoke(data, workoutDone) }
+        }
         api.onSessionExpired = {
             viewModelScope.launch(Dispatchers.Main) { toSignIn(persianError("session_expired")) }
         }

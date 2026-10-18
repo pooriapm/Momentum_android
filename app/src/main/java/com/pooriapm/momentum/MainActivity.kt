@@ -32,6 +32,7 @@ import com.pooriapm.momentum.billing.BazaarBilling
 import com.pooriapm.momentum.data.Api
 import com.pooriapm.momentum.data.Connectivity
 import com.pooriapm.momentum.onboarding.OnboardingScreen
+import com.pooriapm.momentum.reminders.Reminders
 import com.pooriapm.momentum.ui.AppState
 import com.pooriapm.momentum.ui.BrandSplash
 import com.pooriapm.momentum.ui.HomeScreen
@@ -45,7 +46,11 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                AppState(Api(applicationContext), Connectivity(applicationContext)) as T
+                AppState(Api(applicationContext), Connectivity(applicationContext)) { dashboard, workoutDone ->
+                    // Signed out: no reminders; otherwise follow the plan.
+                    if (dashboard == null) Reminders.clear(applicationContext)
+                    else Reminders.sync(applicationContext, dashboard, workoutDone)
+                } as T
         }
     }
     private lateinit var billing: BazaarBilling
@@ -57,6 +62,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
+        Reminders.ensureChannel(this)
         billing = BazaarBilling(this, state.api, lifecycleScope)
         billing.connect {
             if (state.api.session != null) billing.recoverPendingPurchases { state.refresh() }

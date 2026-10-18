@@ -167,6 +167,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
             }
         }
         item { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) }
+        item { ReminderSettingsCard(state) }
         item {
             SettingsGroup {
                 SettingsRow(Icons.Outlined.HealthAndSafety, "مرز ایمنی") { open("/safety", "مرز ایمنی") }
