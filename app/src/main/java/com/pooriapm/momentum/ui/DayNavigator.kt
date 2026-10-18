@@ -5,7 +5,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -133,7 +135,14 @@ fun DayNavigator(
                 )
             }
         }
-        AnimatedVisibility(index != todayIndex && todayIndex >= 0, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+        AnimatedVisibility(
+            index != todayIndex && todayIndex >= 0,
+            // Grow and shrink in height, so the cards below glide instead of jumping.
+            enter = expandVertically(spring(dampingRatio = 0.85f, stiffness = 380f), expandFrom = Alignment.Top) +
+                fadeIn(tween(220, delayMillis = 60)) + scaleIn(tween(220, delayMillis = 60), initialScale = 0.9f),
+            exit = shrinkVertically(spring(dampingRatio = 0.9f, stiffness = 420f), shrinkTowards = Alignment.Top) +
+                fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.9f),
+        ) {
             Text(
                 "بازگشت به امروز",
                 style = MaterialTheme.typography.labelLarge,
