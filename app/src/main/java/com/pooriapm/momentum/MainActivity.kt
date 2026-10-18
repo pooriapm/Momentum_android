@@ -9,7 +9,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -21,7 +33,7 @@ import com.pooriapm.momentum.data.Api
 import com.pooriapm.momentum.data.Connectivity
 import com.pooriapm.momentum.onboarding.OnboardingScreen
 import com.pooriapm.momentum.ui.AppState
-import com.pooriapm.momentum.ui.Centered
+import com.pooriapm.momentum.ui.BrandSplash
 import com.pooriapm.momentum.ui.HomeScreen
 import com.pooriapm.momentum.ui.Screen
 import com.pooriapm.momentum.ui.SignInScreen
@@ -57,14 +69,34 @@ class MainActivity : ComponentActivity() {
             MomentumTheme {
                 // The glow runs edge to edge (behind the system bars); content stays inside them.
                 GlowBackground {
-                    // Home handles its own insets: it scrolls under the gesture bar, as on iOS.
-                    val insets = if (state.screen == Screen.Home) Modifier else Modifier.safeDrawingPadding()
-                    Box(insets) {
-                        when (state.screen) {
-                            Screen.SignIn -> SignInScreen(state)
-                            Screen.Loading -> Centered { CircularProgressIndicator() }
-                            Screen.Onboarding -> state.onboarding?.let { OnboardingScreen(it) }
-                            Screen.Home -> HomeScreen(state, billing)
+                    // The intro plays once per launch (not on rotation) and also covers any loading.
+                    var introDone by rememberSaveable { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        delay(2800)
+                        introDone = true
+                    }
+                    val splash = !introDone || state.screen == Screen.Loading
+                    AnimatedContent(
+                        targetState = splash,
+                        transitionSpec = {
+                            (fadeIn(tween(450, delayMillis = 120)) + scaleIn(tween(450, delayMillis = 120), initialScale = 0.97f))
+                                .togetherWith(fadeOut(tween(380)) + scaleOut(tween(380), targetScale = 1.08f))
+                        },
+                        label = "splash",
+                    ) { showSplash ->
+                        if (showSplash) {
+                            BrandSplash()
+                        } else {
+                            // Home handles its own insets: it scrolls under the gesture bar, as on iOS.
+                            val insets = if (state.screen == Screen.Home) Modifier else Modifier.safeDrawingPadding()
+                            Box(insets) {
+                                when (state.screen) {
+                                    Screen.SignIn -> SignInScreen(state)
+                                    Screen.Loading -> Unit
+                                    Screen.Onboarding -> state.onboarding?.let { OnboardingScreen(it) }
+                                    Screen.Home -> HomeScreen(state, billing)
+                                }
+                            }
                         }
                     }
                 }
