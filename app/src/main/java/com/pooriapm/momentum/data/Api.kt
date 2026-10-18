@@ -116,7 +116,12 @@ class Api(context: Context) {
             if (!it.isSuccessful) {
                 val obj = parsed as? JsonObject ?: JsonObject(emptyMap())
                 val error = obj["error"] as? JsonObject
-                val code = error?.get("code")?.jsonPrimitive?.contentOrNull
+                // PostgREST RPC errors: {"code":"P0001","message":"workout_session_closed"}; the
+                // raised exception name is the useful code, the SQLSTATE is not.
+                val pgMessage = (obj["message"] as? JsonPrimitive)?.contentOrNull
+                    ?.takeIf { m -> obj["code"]?.jsonPrimitive?.contentOrNull?.matches(Regex("[0-9A-Z]{5}")) == true && m.matches(Regex("[a-z][a-z0-9_]{2,80}")) }
+                val code = pgMessage
+                    ?: error?.get("code")?.jsonPrimitive?.contentOrNull
                     ?: obj["error_code"]?.jsonPrimitive?.contentOrNull
                     ?: (obj["code"] as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull
                     ?: (obj["error"] as? JsonPrimitive)?.contentOrNull
@@ -305,6 +310,45 @@ class Api(context: Context) {
     suspend fun undoMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("undo-meal", localDate, slotKey, optionKey)
     suspend fun skipMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("skip-meal", localDate, slotKey, optionKey)
     suspend fun selectMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("select-meal", localDate, slotKey, optionKey)
+
+    // ---- Workout sessions (PostgREST RPCs, same as the website) ----
+
+    /** Today's session for [workoutKey], or null if it was never started. */
+    suspend fun workoutSession(localDate: String, workoutKey: String): WorkoutSession? {
+        val select = "id,local_date,workout_key,workout_title,status,pain_reported,pain_severity,stop_reason," +
+            "exercises:workout_exercise_logs(id,exercise_key,position,planned_name,planned_sets,planned_reps,planned_rest_seconds," +
+            "status,substitute_name,planned_substitute_exercise_id,substitute_exercise_id,skip_reason," +
+            "sets:workout_set_logs(id,set_number,status,completed_at))"
+        val url = "$base/rest/v1/workout_sessions?select=${java.net.URLEncoder.encode(select, "UTF-8")}" +
+            "&local_date=eq.$localDate&workout_key=eq.${java.net.URLEncoder.encode(workoutKey, "UTF-8")}" +
+            "&workout_exercise_logs.order=position.asc&limit=1"
+        val rows = authed("GET", url, null) as? JsonArray ?: return null
+        val row = rows.firstOrNull() ?: return null
+        return json.decodeFromJsonElement(WorkoutSession.serializer(), row)
+    }
+
+    suspend fun startWorkout(localDate: String, workoutKey: String): WorkoutSession {
+        val body = authed("POST", "$base/rest/v1/rpc/start_workout_session", buildJsonObject {
+            put("p_local_date", localDate); put("p_workout_key", workoutKey)
+        }, safeToRetry = true) // idempotent on the server: one session per day and workout
+        return json.decodeFromJsonElement(WorkoutSession.serializer(), body)
+    }
+
+    suspend fun mutateWorkout(
+        sessionId: String,
+        action: String,
+        exerciseKey: String? = null,
+        setNumber: Int? = null,
+        values: JsonObject = JsonObject(emptyMap()),
+    ): WorkoutSession {
+        val key = UUID.randomUUID().toString()
+        val body = authed("POST", "$base/rest/v1/rpc/mutate_workout_session", buildJsonObject {
+            put("p_session_id", sessionId); put("p_action", action)
+            put("p_exercise_key", exerciseKey); put("p_set_number", setNumber)
+            put("p_values", values); put("p_idempotency_key", key)
+        }, safeToRetry = true) // the idempotency key is inside the body
+        return json.decodeFromJsonElement(WorkoutSession.serializer(), body)
+    }
 
     // ---- Shopping list purchases (synced per active plan version) ----
 

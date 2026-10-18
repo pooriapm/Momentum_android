@@ -46,6 +46,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +68,8 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     val day = dashboard.plan!!.day
     var openMeal by remember { mutableStateOf<Meal?>(null) }
     var checkinOpen by rememberSaveable { mutableStateOf(false) }
+    var runnerOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(dashboard.localDate, day.workout != null) { if (day.workout != null) state.loadWorkout() }
     val done = day.meals.filter { it.completionStatus == "completed" }
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
     val next = day.meals.firstOrNull { it.completionStatus == "planned" }
@@ -85,7 +90,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                     Text(
                         when {
                             next != null -> "${next.title}${next.scheduledTime?.let { " · ساعت ${it.fa()}" } ?: ""}: ${next.chosenOption?.title.orEmpty()}"
-                            day.workout != null -> "وعده‌ها کامل شد؛ تمرین امروز مانده."
+                            day.workout != null && state.workout?.status != "completed" -> "وعده‌ها کامل شد؛ تمرین امروز مانده."
                             else -> "آفرین، برنامه امروز کامل شد."
                         },
                         style = MaterialTheme.typography.titleMedium,
@@ -96,7 +101,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
         item { CheckinCard(dashboard.checkin != null) { checkinOpen = true } }
         item { Text("وعده‌های امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
         items(day.meals, key = { it.slotKey }) { meal -> MealCard(state, meal, day.localDate) { openMeal = meal } }
-        day.workout?.let { workout -> item { WorkoutCard(workout) } }
+        day.workout?.let { workout -> item { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } }
             ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
     }
 
@@ -105,6 +110,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
         MealSheet(state, fresh, day.localDate, editable = true) { openMeal = null }
     }
     if (checkinOpen) CheckinSheet(state) { checkinOpen = false }
+    if (runnerOpen) WorkoutRunner(state) { runnerOpen = false }
 }
 
 @Composable
@@ -271,7 +277,7 @@ private fun OptionStrip(meal: Meal, selectable: Boolean, onSelect: (String) -> U
 }
 
 @Composable
-fun WorkoutCard(workout: Workout) {
+fun WorkoutCard(workout: Workout, footer: (@Composable () -> Unit)? = null) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -302,9 +308,10 @@ fun WorkoutCard(workout: Workout) {
                 }
                 if (workout.cooldown.isNotEmpty()) Text("سرد کردن: ${workout.cooldown.joinToString("، ")}", style = MaterialTheme.typography.bodyMedium)
                 workout.safetyNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            } else {
+            } else if (footer == null) {
                 Text("برای دیدن حرکت‌ها بزن", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
+            footer?.invoke()
         }
     }
 }
@@ -313,4 +320,34 @@ fun intensityLabel(value: String) = when (value) {
     "low" -> "سبک"
     "high" -> "سنگین"
     else -> "متوسط"
+}
+
+/** Today's workout status under its card: start, continue (with progress), or done. */
+@Composable
+private fun WorkoutAction(state: AppState, open: () -> Unit) {
+    val session = state.workout
+    val colors = MaterialTheme.colorScheme
+    when {
+        session?.status == "completed" -> Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(colors.tertiaryContainer)
+                .clickable(role = Role.Button, onClick = open).padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = colors.tertiary)
+            Spacer(Modifier.width(10.dp))
+            Text("تمرین امروز انجام شد", style = MaterialTheme.typography.titleSmall, color = colors.tertiary)
+        }
+        session?.status == "stopped" -> Text("تمرین امروز متوقف شد.", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+        session != null -> Button(onClick = open, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            val done = session.exercises.count { it.status == "completed" || it.status == "skipped" }
+            Text("ادامه تمرین · ${done.fa()} از ${session.exercises.size.fa()}")
+        }
+        else -> Button(
+            onClick = { state.startWorkout(open) },
+            enabled = !state.workoutBusy && state.todayWorkoutKey() != null,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        ) {
+            if (state.workoutBusy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp)) else Text("شروع تمرین")
+        }
+    }
 }

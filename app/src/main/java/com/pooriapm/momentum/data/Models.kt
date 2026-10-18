@@ -37,6 +37,7 @@ data class Entitlement(
 
 @Serializable
 data class Plan(
+    val id: String? = null,
     @SerialName("version_id") val versionId: String? = null,
     val name: String,
     @SerialName("valid_from") val validFrom: String,
@@ -77,6 +78,7 @@ data class Workout(
 
 @Serializable
 data class Exercise(
+    @SerialName("exercise_key") val exerciseKey: String? = null,
     val name: String,
     val sets: Int,
     val reps: String,
@@ -177,4 +179,47 @@ data class ShoppingPurchase(
     val amount: Double,
     val scope: String,
     @SerialName("local_date") val localDate: String,
+)
+
+/** A workout being done today (workout_sessions + logs), as the RPCs return it. */
+@Serializable
+data class WorkoutSession(
+    val id: String,
+    @SerialName("local_date") val localDate: String,
+    @SerialName("workout_key") val workoutKey: String,
+    @SerialName("workout_title") val workoutTitle: String,
+    val status: String, // in_progress, paused, completed, stopped
+    @SerialName("pain_reported") val painReported: Boolean = false,
+    @SerialName("pain_severity") val painSeverity: Int? = null,
+    @SerialName("stop_reason") val stopReason: String? = null,
+    val exercises: List<WorkoutExerciseLog> = emptyList(),
+) {
+    val open get() = status == "in_progress" || status == "paused"
+    val canFinish get() = exercises.isNotEmpty() && exercises.all { it.status == "completed" || it.status == "skipped" }
+}
+
+@Serializable
+data class WorkoutExerciseLog(
+    val id: String,
+    @SerialName("exercise_key") val exerciseKey: String,
+    val position: Int,
+    @SerialName("planned_name") val plannedName: String,
+    @SerialName("planned_sets") val plannedSets: Int,
+    @SerialName("planned_reps") val plannedReps: String,
+    @SerialName("planned_rest_seconds") val plannedRestSeconds: Int,
+    val status: String, // planned, in_progress, completed, skipped
+    @SerialName("substitute_name") val substituteName: String? = null,
+    @SerialName("planned_substitute_exercise_id") val plannedSubstituteExerciseId: String? = null,
+    @SerialName("substitute_exercise_id") val substituteExerciseId: String? = null,
+    @SerialName("skip_reason") val skipReason: String? = null,
+    val sets: List<WorkoutSetLog> = emptyList(),
+) {
+    val doneSets get() = sets.count { it.status == "completed" }
+}
+
+@Serializable
+data class WorkoutSetLog(
+    val id: String,
+    @SerialName("set_number") val setNumber: Int,
+    val status: String, // planned, completed, skipped
 )

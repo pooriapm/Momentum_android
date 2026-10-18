@@ -13,6 +13,8 @@ import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.data.ErrorKind
 import com.pooriapm.momentum.data.Meal
 import com.pooriapm.momentum.data.ShoppingPurchase
+import com.pooriapm.momentum.data.WorkoutSession
+import kotlinx.serialization.json.JsonObject
 import com.pooriapm.momentum.data.asApi
 import com.pooriapm.momentum.data.persianError
 import com.pooriapm.momentum.onboarding.OnboardingState
@@ -61,6 +63,14 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
         private set
 
     var onboarding: OnboardingState? = null
+        private set
+
+    /** Today's workout session (null = not started); [workoutLoaded] tells "none" from "unknown". */
+    var workout by mutableStateOf<WorkoutSession?>(null)
+        private set
+    var workoutLoaded by mutableStateOf(false)
+        private set
+    var workoutBusy by mutableStateOf(false)
         private set
 
     /** Shopping purchases of the active plan (server-synced). null until first loaded. */
@@ -146,7 +156,12 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
         refreshJob = scope.launch {
             loading = true
             try {
+                val previousDate = dashboard?.localDate
                 dashboard = api.dashboard().also(::route)
+                if (previousDate != dashboard?.localDate) {
+                    workout = null
+                    workoutLoaded = false
+                }
                 loadError = null
                 autoRetries = 0
                 lastLoadedAt = System.currentTimeMillis()
@@ -300,6 +315,61 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
                 report(raw.asApi()) { saveCheckin(checkin, onDone) }
             } finally {
                 savingCheckin = false
+            }
+        }
+    }
+
+    /** The server's key for today's workout: "<plan id>-<day index>". */
+    fun todayWorkoutKey(): String? {
+        val plan = dashboard?.plan ?: return null
+        if (plan.day.workout == null) return null
+        return plan.id?.let { "$it-${plan.day.dayIndex}" }
+    }
+
+    fun loadWorkout() {
+        val date = dashboard?.localDate ?: return
+        val key = todayWorkoutKey() ?: return
+        if (!online) return
+        scope.launch {
+            try {
+                workout = api.workoutSession(date, key)
+                workoutLoaded = true
+            } catch (raw: Exception) {
+                raw.asApi() // logged; the card keeps its "start" state
+            }
+        }
+    }
+
+    /** Starts (or reopens) today's workout. Safe to repeat: one session per day and workout. */
+    fun startWorkout(onReady: () -> Unit) {
+        val date = dashboard?.localDate ?: return
+        val key = todayWorkoutKey() ?: return
+        if (workout != null) return onReady()
+        workoutAction({ startWorkout(onReady) }) { api.startWorkout(date, key).also { onReady() } }
+    }
+
+    fun workoutStep(action: String, exerciseKey: String? = null, setNumber: Int? = null, values: JsonObject = JsonObject(emptyMap())) {
+        val session = workout ?: return
+        workoutAction({ workoutStep(action, exerciseKey, setNumber, values) }) {
+            api.mutateWorkout(session.id, action, exerciseKey, setNumber, values)
+        }
+    }
+
+    private fun workoutAction(retry: () -> Unit, block: suspend () -> WorkoutSession) {
+        if (workoutBusy) return
+        if (!online) return offlineMessage(retry)
+        scope.launch {
+            workoutBusy = true
+            try {
+                workout = block()
+                workoutLoaded = true
+            } catch (raw: Exception) {
+                val error = raw.asApi()
+                report(error, retry)
+                // Stale view (closed elsewhere, day rolled over): show what the server has.
+                if (error.kind == ErrorKind.Conflict || error.kind == ErrorKind.NotFound || error.kind == ErrorKind.Invalid) loadWorkout()
+            } finally {
+                workoutBusy = false
             }
         }
     }
