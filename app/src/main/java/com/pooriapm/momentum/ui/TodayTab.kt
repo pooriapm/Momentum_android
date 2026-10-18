@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.data.Meal
 import com.pooriapm.momentum.data.Workout
+import com.pooriapm.momentum.ui.components.DoneToggle
 import com.pooriapm.momentum.ui.components.InfoCard
 
 @Composable
@@ -183,8 +184,12 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                 }
             }
             if (editable) {
-                if (done) OutlinedButton(onClick = { state.toggleMeal(meal, localDate) }, enabled = !busy) { Text("برگرداندن ثبت") }
-                else Button(onClick = { state.toggleMeal(meal, localDate) }, enabled = !busy) { Text("خوردم") }
+                DoneToggle(
+                    done = done,
+                    busy = busy,
+                    enabled = state.busyMeal == null,
+                    onToggle = { state.toggleMeal(meal, localDate) },
+                )
             }
         }
     }

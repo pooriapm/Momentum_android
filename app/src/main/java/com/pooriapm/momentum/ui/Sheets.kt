@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.ui.semantics.Role
 import com.pooriapm.momentum.ui.components.DecimalField
+import com.pooriapm.momentum.ui.components.DoneToggle
 import com.pooriapm.momentum.ui.components.NumberStepper
 import com.pooriapm.momentum.ui.components.TextAnswer
 
@@ -72,11 +73,13 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
             }
             if (editable) {
                 val done = meal.completionStatus == "completed"
-                Button(
-                    onClick = { state.toggleMeal(meal, localDate); onDismiss() },
+                // Stays open so the tick animation plays here; the sheet shows the live meal.
+                DoneToggle(
+                    done = done,
+                    busy = state.busyMeal == meal.slotKey,
                     enabled = state.busyMeal == null,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                ) { Text(if (done) "برگرداندن ثبت" else "خوردم") }
+                    onToggle = { state.toggleMeal(meal, localDate) },
+                )
             }
         }
     }
