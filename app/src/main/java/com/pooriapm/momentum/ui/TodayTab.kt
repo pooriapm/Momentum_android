@@ -1,6 +1,21 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import com.pooriapm.momentum.ui.components.MealStatusControl
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,7 +58,6 @@ import androidx.compose.ui.unit.dp
 import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.data.Meal
 import com.pooriapm.momentum.data.Workout
-import com.pooriapm.momentum.ui.components.DoneToggle
 import com.pooriapm.momentum.ui.components.InfoCard
 
 @Composable
@@ -53,7 +67,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     var checkinOpen by rememberSaveable { mutableStateOf(false) }
     val done = day.meals.filter { it.completionStatus == "completed" }
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
-    val next = day.meals.firstOrNull { it.completionStatus != "completed" }
+    val next = day.meals.firstOrNull { it.completionStatus == "planned" }
 
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -147,49 +161,110 @@ fun OutlinedCardRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean = true, onOpen: () -> Unit) {
     val option = meal.chosenOption
-    val done = meal.completionStatus == "completed"
+    val status = meal.completionStatus
+    val skipped = status == "skipped"
     val busy = state.busyMeal == meal.slotKey
+    val colors = MaterialTheme.colorScheme
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().animateContentSize().clickable(role = Role.Button, onClick = onOpen),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (done) Icons.Outlined.CheckCircle else Icons.Outlined.Restaurant, contentDescription = null,
-                    tint = if (done) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    when (status) {
+                        "completed" -> Icons.Outlined.CheckCircle
+                        "skipped" -> Icons.Outlined.DoNotDisturbOn
+                        else -> Icons.Outlined.Restaurant
+                    },
+                    contentDescription = null,
+                    tint = when (status) {
+                        "completed" -> colors.tertiary
+                        "skipped" -> colors.outline
+                        else -> colors.primary
+                    },
+                    modifier = Modifier.padding(top = 2.dp).size(22.dp),
+                )
                 Spacer(Modifier.width(10.dp))
-                Text(meal.title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                meal.scheduledTime?.let { Text(it.fa(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            option?.let {
-                Text(it.title, style = MaterialTheme.typography.titleMedium)
-                Text("${it.nutrition.calories.faRounded()} کالری · ${it.nutrition.proteinG.faRounded()} گرم پروتئین",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (editable && meal.options.size > 1 && !done) {
-                // Up to six options: wrap instead of running off the screen.
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    meal.options.forEachIndexed { index, o ->
-                        FilterChip(
-                            selected = o.optionKey == option?.optionKey,
-                            onClick = { state.chooseOption(meal, localDate, o.optionKey) },
-                            label = { Text("گزینه ${(index + 1).fa()}") },
-                            enabled = !busy,
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(meal.title, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                    option?.let {
+                        Text(
+                            it.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (skipped) colors.onSurfaceVariant else colors.onSurface,
+                            textDecoration = if (skipped) TextDecoration.LineThrough else null,
+                        )
+                        Text(
+                            "${it.nutrition.calories.faRounded()} کالری · ${it.nutrition.proteinG.faRounded()} گرم پروتئین",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(meal.scheduledTime?.fa().orEmpty(), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                    if (editable && option != null) {
+                        MealStatusControl(
+                            status = status,
+                            busy = busy,
+                            enabled = state.busyMeal == null,
+                            onEat = { state.completeMeal(meal, localDate) },
+                            onSkip = { state.skipMeal(meal, localDate) },
+                            onUndo = { state.undoMeal(meal, localDate) },
                         )
                     }
                 }
             }
-            if (editable) {
-                DoneToggle(
-                    done = done,
-                    busy = busy,
-                    enabled = state.busyMeal == null,
-                    onToggle = { state.toggleMeal(meal, localDate) },
+            // Meals generated with alternatives show them as small cards; single-option meals don't.
+            if (meal.options.size > 1) {
+                OptionStrip(
+                    meal = meal,
+                    selectable = editable && status == "planned" && state.busyMeal == null,
+                    onSelect = { state.chooseOption(meal, localDate, it) },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The meal's alternatives as a row of small cards. The chosen one is highlighted; others can be
+ * picked while the meal is still planned. Once eaten or skipped the row stays (no height jump) but
+ * is locked, with the chosen option marked.
+ */
+@Composable
+private fun OptionStrip(meal: Meal, selectable: Boolean, onSelect: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val chosen = meal.chosenOption?.optionKey
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            if (selectable) "${meal.options.size.fa()} گزینه · یکی را انتخاب کن" else "${meal.options.size.fa()} گزینه",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSurfaceVariant,
+        )
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            meal.options.forEach { o ->
+                val selected = o.optionKey == chosen
+                val border by animateColorAsState(if (selected) colors.primary else colors.outlineVariant, label = "option-border")
+                val container by animateColorAsState(if (selected) colors.primaryContainer else colors.surface, label = "option-bg")
+                Column(
+                    Modifier
+                        .widthIn(min = 104.dp, max = 168.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(container)
+                        .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(14.dp))
+                        .selectable(selected = selected, enabled = selectable || selected, role = Role.RadioButton) { onSelect(o.optionKey) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .graphicsLayer { alpha = if (selectable || selected) 1f else 0.55f },
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(o.title, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${o.nutrition.calories.faRounded()} کالری", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                }
             }
         }
     }

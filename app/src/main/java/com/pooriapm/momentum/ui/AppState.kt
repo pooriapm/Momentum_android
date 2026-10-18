@@ -235,23 +235,42 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
                 dashboard = api.dashboard()
                 lastLoadedAt = System.currentTimeMillis()
             } catch (raw: Exception) {
-                report(raw.asApi(), retry)
+                val error = raw.asApi()
+                report(error, retry.takeUnless { error.code == "local_date_mismatch" })
+                // The card was stale (another device, or the day rolled over): show the truth.
+                if (error.kind == ErrorKind.Conflict || error.kind == ErrorKind.NotFound) refresh()
             } finally {
                 busyMeal = null
             }
         }
     }
 
-    fun toggleMeal(meal: Meal, localDate: String) {
+    /**
+     * Meal status changes. Each one checks the meal's current server status first, so a double tap
+     * or a stale card can never send "complete" for a meal that is already done (or undo nothing).
+     */
+    fun completeMeal(meal: Meal, localDate: String) {
+        if (meal.completionStatus == "completed") return
         val option = meal.chosenOption ?: return
-        mutate(meal.slotKey, { toggleMeal(meal, localDate) }) {
-            if (meal.completionStatus == "completed") api.undoMeal(localDate, meal.slotKey, option.optionKey)
-            else api.completeMeal(localDate, meal.slotKey, option.optionKey)
-        }
+        mutate(meal.slotKey, { completeMeal(meal, localDate) }) { api.completeMeal(localDate, meal.slotKey, option.optionKey) }
+    }
+
+    fun skipMeal(meal: Meal, localDate: String) {
+        if (meal.completionStatus != "planned") return
+        val option = meal.chosenOption ?: return
+        mutate(meal.slotKey, { skipMeal(meal, localDate) }) { api.skipMeal(localDate, meal.slotKey, option.optionKey) }
+    }
+
+    /** Back to planned, from either eaten or skipped. */
+    fun undoMeal(meal: Meal, localDate: String) {
+        if (meal.completionStatus == "planned") return
+        val option = meal.chosenOption ?: return
+        mutate(meal.slotKey, { undoMeal(meal, localDate) }) { api.undoMeal(localDate, meal.slotKey, option.optionKey) }
     }
 
     fun chooseOption(meal: Meal, localDate: String, optionKey: String) {
-        if (optionKey == meal.chosenOption?.optionKey) return
+        // Only a planned meal can switch; the server locks eaten and skipped ones.
+        if (optionKey == meal.chosenOption?.optionKey || meal.completionStatus != "planned") return
         mutate(meal.slotKey, { chooseOption(meal, localDate, optionKey) }) { api.selectMeal(localDate, meal.slotKey, optionKey) }
     }
 

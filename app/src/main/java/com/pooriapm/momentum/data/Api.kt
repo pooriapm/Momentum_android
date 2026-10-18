@@ -302,6 +302,7 @@ class Api(context: Context) {
 
     suspend fun completeMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("complete-meal", localDate, slotKey, optionKey)
     suspend fun undoMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("undo-meal", localDate, slotKey, optionKey)
+    suspend fun skipMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("skip-meal", localDate, slotKey, optionKey)
     suspend fun selectMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("select-meal", localDate, slotKey, optionKey)
 
     /** Daily check-in, same contract as the website (checkins → save-daily). */

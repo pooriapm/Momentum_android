@@ -92,6 +92,11 @@ fun persianError(code: String, kind: ErrorKind? = null): String = when (code) {
     "ALPHA_DISABLED", "ALPHA_NOT_INVITED", "PUBLIC_BETA_DISABLED" ->
         "حسابت ساخته شده، ولی Momentum فعلاً فقط برای افراد دعوت‌شده باز است. وقتی دسترسی‌ات فعال شد، همین‌جا ادامه می‌دهی."
     "entitlement_required", "PAYMENT_METHOD_REQUIRED", "quota_exceeded" -> "برای این کار عضویت فعال لازم است؛ از «حساب من» فعالش کن."
+    "completed_meal_locked" -> "این وعده ثبت شده است؛ برای تغییرش اول «حذف ثبت» را بزن."
+    "meal_not_completed" -> "این وعده ثبتی برای حذف ندارد؛ صفحه را تازه کن."
+    "local_date_mismatch" -> "روز عوض شده است؛ برنامه امروز را دوباره بارگذاری کردیم."
+    "plan_option_not_found" -> "این گزینه دیگر در برنامه نیست؛ صفحه را تازه کن."
+    "unsupported_action" -> "این قابلیت هنوز روی سرور فعال نشده است."
     "ai_temporarily_disabled" -> "ساخت هوشمند برنامه فعلاً در دسترس نیست."
     "session_expired" -> "مدتی است وارد نشده‌ای؛ برای امنیت دوباره وارد شو."
     "not_configured" -> "این نسخه از اپ به سرور وصل نیست (momentum.properties خالی بود)."
