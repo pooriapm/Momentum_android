@@ -126,7 +126,7 @@ private fun Macro(label: String, grams: Double) {
 private fun CheckinCard(done: Boolean, onOpen: () -> Unit) {
     OutlinedCardRow(
         icon = if (done) Icons.Outlined.CheckCircle else Icons.Outlined.WbSunny,
-        title = if (done) "چک‌این امروز ثبت شد" else "چک‌این روزانه",
+        title = if (done) "گزارش امروز ثبت شد" else "گزارش روزانه",
         subtitle = if (done) "می‌توانی دوباره ویرایشش کنی." else "انرژی، خواب و حالت؛ کمتر از یک دقیقه.",
         onClick = onOpen,
     )

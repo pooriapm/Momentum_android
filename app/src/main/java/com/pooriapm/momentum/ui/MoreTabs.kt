@@ -70,7 +70,7 @@ fun ProgressTab(dashboard: Dashboard) {
         item {
             InfoCard("وزن") {
                 if (weights.isEmpty()) {
-                    Text("وزن را در چک‌این روزانه وارد کن تا روندش را ببینی.")
+                    Text("وزن را در گزارش روزانه وارد کن تا روندش را ببینی.")
                 } else {
                     val first = weights.first().weightKg!!
                     val last = weights.last().weightKg!!

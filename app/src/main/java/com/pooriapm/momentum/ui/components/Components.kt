@@ -1,6 +1,21 @@
 package com.pooriapm.momentum.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -189,18 +204,63 @@ fun ChipGroup(options: List<Pair<String, String>>, selected: Set<String>, onTogg
     }
 }
 
-/** Yes/no answer as an M3 segmented button. */
+/** Yes/no answer as a segmented control. */
 @Composable
 fun YesNoQuestion(question: String, value: String?, onChange: (String) -> Unit) {
+    val keys = listOf("no", "yes")
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(question, style = MaterialTheme.typography.bodyLarge)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("no" to "خیر", "yes" to "بله").forEachIndexed { index, (key, label) ->
-                SegmentedButton(
-                    selected = value == key,
-                    onClick = { onChange(key) },
-                    shape = SegmentedButtonDefaults.itemShape(index, 2),
-                ) { Text(label) }
+        SegmentedPicker(listOf("خیر", "بله"), keys.indexOf(value).takeIf { it >= 0 }) { onChange(keys[it]) }
+    }
+}
+
+/**
+ * iOS-style segmented control: a capsule track with a thumb that slides to the chosen option.
+ * Built on `offset`, which mirrors with the layout, so the first option sits on the right in
+ * Persian and the rounded ends are always the outer ones (M3 segmented buttons get them wrong in RTL).
+ */
+@Composable
+fun SegmentedPicker(options: List<String>, selectedIndex: Int?, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(CircleShape)
+            .background(colors.surfaceVariant)
+            .padding(3.dp),
+    ) {
+        val segment = maxWidth / options.size
+        if (selectedIndex != null) {
+            val x by animateDpAsState(segment * selectedIndex, spring(dampingRatio = 0.8f, stiffness = 500f), label = "thumb")
+            Box(
+                Modifier
+                    .offset(x = x)
+                    .width(segment)
+                    .fillMaxHeight()
+                    .shadow(2.dp, CircleShape)
+                    .background(colors.surface, CircleShape),
+            )
+        }
+        Row(Modifier.fillMaxSize().selectableGroup()) {
+            options.forEachIndexed { index, label ->
+                val selected = index == selectedIndex
+                val tint by animateColorAsState(if (selected) colors.primary else colors.onSurfaceVariant, label = "label")
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .selectable(selected = selected, role = Role.RadioButton) { onSelect(index) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        color = tint,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
             }
         }
     }
@@ -217,7 +277,7 @@ fun NumberStepper(label: String, value: Int, range: IntRange, unit: String = "",
         FilledTonalIconButton(onClick = { onChange(value - 1) }, enabled = value > range.first) {
             Icon(Icons.Outlined.Remove, contentDescription = "کم کردن")
         }
-        Text("${value.fa()} $unit".trim(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 12.dp))
+        Text("${value.fa()} $unit".trim(), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 12.dp))
         FilledTonalIconButton(onClick = { onChange(value + 1) }, enabled = value < range.last) {
             Icon(Icons.Outlined.Add, contentDescription = "زیاد کردن")
         }
@@ -228,7 +288,7 @@ fun NumberStepper(label: String, value: Int, range: IntRange, unit: String = "",
 @Composable
 fun DecimalField(label: String, value: String, unit: String, onChange: (String) -> Unit, supporting: String? = null) {
     OutlinedTextField(
-        value = value.fa(),
+        value = value.fa().replace('.', '٫'),
         onValueChange = { raw ->
             val latin = raw.map { c -> if (c in '۰'..'۹') '0' + (c - '۰') else if (c == '٫' || c == ',') '.' else c }
                 .filter { it.isDigit() || it == '.' }.joinToString("")

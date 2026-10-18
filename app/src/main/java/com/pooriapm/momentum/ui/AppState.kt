@@ -264,7 +264,7 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
             try {
                 api.saveDailyCheckin(date, checkin)
                 onDone()
-                message = UiMessage("چک‌این امروز ثبت شد. برنامه این ماه تغییری نکرد.", isError = false)
+                message = UiMessage("گزارش امروز ثبت شد. برنامه این ماه تغییری نکرد.", isError = false)
                 dashboard = api.dashboard()
             } catch (raw: Exception) {
                 report(raw.asApi()) { saveCheckin(checkin, onDone) }

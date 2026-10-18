@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pooriapm.momentum.data.DailyCheckin
 import com.pooriapm.momentum.data.Meal
+import com.pooriapm.momentum.ui.components.SegmentedPicker
 import com.pooriapm.momentum.ui.components.DecimalField
 import com.pooriapm.momentum.ui.components.NumberStepper
 import com.pooriapm.momentum.ui.components.TextAnswer
@@ -78,16 +79,7 @@ private fun formatAmount(value: Double): String = value.faDecimal()
 private fun ScoreQuestion(label: String, low: String, high: String, value: Int, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.titleMedium)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            (1..5).forEach { score ->
-                SegmentedButton(
-                    selected = value == score,
-                    onClick = { onChange(score) },
-                    shape = SegmentedButtonDefaults.itemShape(score - 1, 5),
-                    icon = {},
-                ) { Text(score.fa()) }
-            }
-        }
+        SegmentedPicker((1..5).map { it.fa() }, (value - 1).takeIf { it in 0..4 }) { onChange(it + 1) }
         Text("۱ = $low · ۵ = $high", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -109,7 +101,7 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("چک‌این امروز", style = MaterialTheme.typography.headlineSmall)
+            Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall)
             ScoreQuestion("انرژی", "خیلی کم", "عالی", energy) { energy = it }
             ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood) { mood = it }
             ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger) { hunger = it }
@@ -134,9 +126,9 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
                 enabled = canSave && !state.savingCheckin,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             ) {
-                if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت چک‌این")
+                if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت گزارش")
             }
-            Text("چک‌این برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
+            Text("گزارش روزانه برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
