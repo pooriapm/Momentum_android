@@ -161,6 +161,10 @@ fun LiquidSelector(
         }
 
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
+        // Gesture callbacks are created once; read direction and width live. A sheet's window first
+        // composes left-to-right and only then picks up RTL, so a captured value would be stale.
+        val ltr by rememberUpdatedState(isLtr)
+        val slot by rememberUpdatedState(tabWidth)
         val scope = rememberCoroutineScope()
         var currentIndex by remember { mutableIntStateOf(selected) }
         val lens = remember(scope, count) {
@@ -179,8 +183,9 @@ fun LiquidSelector(
                     scope.launch { offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f)) }
                 },
                 onDrag = { _, dragAmount ->
+                    // Indices grow to the left in RTL, so a drag to the right lowers the index there.
                     updateValue(
-                        (targetValue + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
+                        (targetValue + dragAmount.x / slot * if (ltr) 1f else -1f)
                             .fastCoerceIn(0f, (count - 1).toFloat()),
                     )
                     scope.launch { offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x) }
@@ -204,8 +209,8 @@ fun LiquidSelector(
                 animationScope = scope,
                 position = { size, _ ->
                     Offset(
-                        if (isLtr) (lens.value + 0.5f) * tabWidth + panelOffset
-                        else size.width - (lens.value + 0.5f) * tabWidth + panelOffset,
+                        if (ltr) (lens.value + 0.5f) * slot + panelOffset
+                        else size.width - (lens.value + 0.5f) * slot + panelOffset,
                         size.height / 2f,
                     )
                 },
