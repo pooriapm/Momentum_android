@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -143,6 +144,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     var page by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     fun open(path: String, title: String) { page = "${BuildConfig.SITE_URL.trimEnd('/')}/fa$path" to title }
     var buying by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
     fun buy() {
         if (!state.online) {
             state.message = UiMessage(com.pooriapm.momentum.data.persianError("offline", com.pooriapm.momentum.data.ErrorKind.Offline))
@@ -167,6 +169,11 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
             }
         }
         item { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) }
+        item {
+            SettingsGroup {
+                SettingsRow(Icons.Outlined.Tune, "ترجیحات برنامه", last = true) { editing = true }
+            }
+        }
         item { ReminderSettingsCard(state) }
         item {
             SettingsGroup {
@@ -192,6 +199,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
         }
     }
     page?.let { (url, title) -> InAppPage(url, title) { page = null } }
+    if (editing) PreferencesScreen(state) { editing = false }
 }
 
 /** Where a membership stands right now. */

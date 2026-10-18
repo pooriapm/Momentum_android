@@ -32,6 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 
@@ -83,9 +86,13 @@ fun MomentumField(
         },
         tween(180), label = "container",
     )
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val textStyle = MaterialTheme.typography.bodyLarge.copy(
         color = colors.onSurface,
         textDirection = if (ltr) TextDirection.Ltr else TextDirection.Content,
+        // Pinned to the layout's start edge, not to each paragraph's own direction (Start would
+        // follow a Latin word's LTR direction), so typed text always lines up with the label.
+        textAlign = if (ltr || !rtl) TextAlign.Left else TextAlign.Right,
     )
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -118,11 +125,13 @@ fun MomentumField(
                         .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 14.dp, bottom = 14.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
-                    Box(Modifier.weight(1f)) {
+                    // The text box spans the whole field, so text starts at the start edge (right in
+                    // Persian) whatever its own direction; short Latin text no longer floats mid-field.
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty() && placeholder != null) {
-                            Text(placeholder, style = textStyle.copy(color = colors.onSurfaceVariant.copy(alpha = 0.7f)))
+                            Text(placeholder, style = textStyle.copy(color = colors.onSurfaceVariant.copy(alpha = 0.7f)), modifier = Modifier.fillMaxWidth())
                         }
-                        inner()
+                        Box(Modifier.fillMaxWidth()) { inner() }
                     }
                     suffix?.let {
                         Spacer(Modifier.width(8.dp))

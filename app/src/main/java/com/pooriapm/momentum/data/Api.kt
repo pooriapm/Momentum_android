@@ -18,6 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -310,6 +311,23 @@ class Api(context: Context) {
     suspend fun undoMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("undo-meal", localDate, slotKey, optionKey)
     suspend fun skipMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("skip-meal", localDate, slotKey, optionKey)
     suspend fun selectMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("select-meal", localDate, slotKey, optionKey)
+
+    // ---- Account settings (goal, foods, schedule…) ----
+
+    /** The raw settings document (profile, goal, dietary, schedule) as the website edits it. */
+    suspend fun accountSettings(): JsonObject {
+        val body = function("account-settings", buildJsonObject { put("action", "get") }, readOnly = true)
+        return body["settings"] as? JsonObject ?: throw ApiException("invalid_response", persianError("invalid_response"), ErrorKind.Server)
+    }
+
+    /** Saves the full settings payload (the server requires every editable field). */
+    suspend fun updateAccountSettings(settings: JsonObject): Boolean {
+        val body = function("account-settings", buildJsonObject {
+            put("action", "update"); put("settings", settings)
+        }, UUID.randomUUID().toString())
+        val result = body["settings"] as? JsonObject
+        return result?.get("plan_review_required")?.jsonPrimitive?.booleanOrNull ?: false
+    }
 
     // ---- Workout sessions (PostgREST RPCs, same as the website) ----
 
