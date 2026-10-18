@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -91,12 +92,7 @@ private val GlassBlur = 2.dp
 
 private val LocalTabScale = staticCompositionLocalOf { { 1f } }
 
-/**
- * Floating Liquid Glass tab bar (Apple iOS 26 style): clear glass that blurs, saturates and refracts
- * the content behind it ([backdrop] must be recorded from that content with `layerBackdrop`), and
- * a selection lens you can tap or drag between tabs, which stretches with velocity and bends light
- * at its edges while pressed. Right-to-left aware.
- */
+/** Floating Liquid Glass tab bar (Apple iOS 26 style), a [LiquidSelector] over the screen's content. */
 @Composable
 fun GlassTabBar(
     tabs: List<GlassTab>,
@@ -104,6 +100,36 @@ fun GlassTabBar(
     onSelect: (Int) -> Unit,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
+) {
+    LiquidSelector(
+        count = tabs.size,
+        selected = selected,
+        onSelect = onSelect,
+        backdrop = backdrop,
+        modifier = modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 12.dp),
+    ) { index ->
+        val color = MaterialTheme.colorScheme.onSurface
+        Icon(tabs[index].icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        Text(tabs[index].label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
+    }
+}
+
+/**
+ * Liquid Glass segmented control: clear glass that blurs, saturates and refracts the content behind
+ * it ([backdrop] must be recorded from that content with `layerBackdrop`), and a selection lens you
+ * can tap or drag between options, which stretches with velocity and bends light at its edges while
+ * pressed. Right-to-left aware. Used for the tab bar and for 1–5 scores.
+ */
+@Composable
+fun LiquidSelector(
+    count: Int,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    height: Dp = 64.dp,
+    role: Role = Role.Tab,
+    item: @Composable ColumnScope.(index: Int) -> Unit,
 ) {
     val dark = isSystemInDarkTheme()
     val accent = MaterialTheme.colorScheme.primary
@@ -116,14 +142,10 @@ fun GlassTabBar(
     val haptics = LocalHapticFeedback.current
     val onSelectState by rememberUpdatedState(onSelect)
     val tabsBackdrop = rememberLayerBackdrop()
-    val count = tabs.size
+    val lensHeight = height - 8.dp
 
     BoxWithConstraints(
-        modifier
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 12.dp)
-            .fillMaxWidth(),
+        modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterStart,
     ) {
         val density = LocalDensity.current
@@ -191,8 +213,8 @@ fun GlassTabBar(
         }
 
         val items: @Composable RowScope.() -> Unit = {
-            tabs.forEachIndexed { index, tab ->
-                TabItem(tab, index == currentIndex) { currentIndex = index }
+            repeat(count) { index ->
+                LiquidItem(index == currentIndex, role, { currentIndex = index }) { item(index) }
             }
         }
 
@@ -216,7 +238,7 @@ fun GlassTabBar(
                     onDrawSurface = { drawRect(glass) },
                 )
                 .then(highlight.modifier)
-                .height(64.dp)
+                .height(height)
                 .fillMaxWidth()
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -245,7 +267,7 @@ fun GlassTabBar(
                         onDrawSurface = { drawRect(glass) },
                     )
                     .then(highlight.modifier)
-                    .height(56.dp)
+                    .height(lensHeight)
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp)
                     .graphicsLayer(colorFilter = ColorFilter.tint(accent)),
@@ -291,19 +313,19 @@ fun GlassTabBar(
                         drawRect(Color.Black.copy(alpha = 0.03f * progress))
                     },
                 )
-                .height(56.dp)
+                .height(lensHeight)
                 .fillMaxWidth(1f / count),
         )
     }
 }
 
 @Composable
-private fun RowScope.TabItem(tab: GlassTab, selected: Boolean, onClick: () -> Unit) {
+private fun RowScope.LiquidItem(selected: Boolean, role: Role, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val scale = LocalTabScale.current
     Column(
         Modifier
             .clip(Capsule())
-            .clickable(interactionSource = null, indication = null, role = Role.Tab, onClick = onClick)
+            .clickable(interactionSource = null, indication = null, role = role, onClick = onClick)
             .semantics { this.selected = selected }
             .fillMaxHeight()
             .weight(1f)
@@ -314,9 +336,6 @@ private fun RowScope.TabItem(tab: GlassTab, selected: Boolean, onClick: () -> Un
             },
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        val color = MaterialTheme.colorScheme.onSurface
-        Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-        Text(tab.label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
-    }
+        content = content,
+    )
 }

@@ -29,7 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pooriapm.momentum.data.DailyCheckin
 import com.pooriapm.momentum.data.Meal
-import com.pooriapm.momentum.ui.components.SegmentedPicker
+import com.pooriapm.momentum.ui.components.LiquidSelector
+import com.pooriapm.momentum.ui.theme.LocalGlow
+import com.pooriapm.momentum.ui.theme.hueBackground
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.ui.semantics.Role
 import com.pooriapm.momentum.ui.components.DecimalField
 import com.pooriapm.momentum.ui.components.NumberStepper
 import com.pooriapm.momentum.ui.components.TextAnswer
@@ -76,10 +85,19 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
 private fun formatAmount(value: Double): String = value.faDecimal()
 
 @Composable
-private fun ScoreQuestion(label: String, low: String, high: String, value: Int, onChange: (Int) -> Unit) {
+private fun ScoreQuestion(label: String, low: String, high: String, value: Int, backdrop: Backdrop, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.titleMedium)
-        SegmentedPicker((1..5).map { it.fa() }, (value - 1).takeIf { it in 0..4 }) { onChange(it + 1) }
+        LiquidSelector(
+            count = 5,
+            selected = (value - 1).coerceIn(0, 4),
+            onSelect = { onChange(it + 1) },
+            backdrop = backdrop,
+            height = 52.dp,
+            role = Role.RadioButton,
+        ) { index ->
+            Text((index + 1).fa(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        }
         Text("۱ = $low · ۵ = $high", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -96,40 +114,53 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
     var pain by rememberSaveable { mutableIntStateOf(0) }
     var painWhere by rememberSaveable { mutableStateOf("") }
     var weight by rememberSaveable { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall)
-            ScoreQuestion("انرژی", "خیلی کم", "عالی", energy) { energy = it }
-            ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood) { mood = it }
-            ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger) { hunger = it }
-            ScoreQuestion("ریکاوری بدن", "خسته", "کاملاً آماده", recovery) { recovery = it }
-            NumberStepper("خواب دیشب", sleepHours, 0..14, "ساعت") { sleepHours = it }
-            NumberStepper("درد", pain, 0..10, "از ۱۰") { pain = it }
-            if (pain > 0) TextAnswer("کجای بدن؟", painWhere, { painWhere = it }, maxLength = 240)
-            DecimalField("وزن امروز (اختیاری)", weight, "کیلوگرم", { weight = it })
-            val canSave = pain == 0 || painWhere.isNotBlank()
-            Button(
-                onClick = {
-                    state.saveCheckin(
-                        DailyCheckin(
-                            energyScore = energy, hungerScore = hunger, moodScore = mood, recoveryScore = recovery,
-                            sleepMinutes = sleepHours * 60, painScore = pain,
-                            painLocation = painWhere.trim().ifBlank { null },
-                            weightKg = weight.toDoubleOrNull()?.takeIf { it in 20.0..500.0 },
-                        ),
-                        onDismiss,
-                    )
-                },
-                enabled = canSave && !state.savingCheckin,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+    val glow = LocalGlow.current
+    // The score selectors are Liquid Glass: they refract the sheet's hue background behind them.
+    val backdrop = rememberLayerBackdrop()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = glow.base,
+        // The handle is drawn inside the hue so the background has no seam under it.
+        dragHandle = null,
+    ) {
+        Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Box(Modifier.matchParentSize().layerBackdrop(backdrop).hueBackground(glow))
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت گزارش")
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
+                Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall)
+                ScoreQuestion("انرژی", "خیلی کم", "عالی", energy, backdrop) { energy = it }
+                ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood, backdrop) { mood = it }
+                ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger, backdrop) { hunger = it }
+                ScoreQuestion("ریکاوری بدن", "خسته", "کاملاً آماده", recovery, backdrop) { recovery = it }
+                NumberStepper("خواب دیشب", sleepHours, 0..14, "ساعت") { sleepHours = it }
+                NumberStepper("درد", pain, 0..10, "از ۱۰") { pain = it }
+                if (pain > 0) TextAnswer("کجای بدن؟", painWhere, { painWhere = it }, maxLength = 240)
+                DecimalField("وزن امروز (اختیاری)", weight, "کیلوگرم", { weight = it })
+                val canSave = pain == 0 || painWhere.isNotBlank()
+                Button(
+                    onClick = {
+                        state.saveCheckin(
+                            DailyCheckin(
+                                energyScore = energy, hungerScore = hunger, moodScore = mood, recoveryScore = recovery,
+                                sleepMinutes = sleepHours * 60, painScore = pain,
+                                painLocation = painWhere.trim().ifBlank { null },
+                                weightKg = weight.toDoubleOrNull()?.takeIf { it in 20.0..500.0 },
+                            ),
+                            onDismiss,
+                        )
+                    },
+                    enabled = canSave && !state.savingCheckin,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) {
+                    if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت گزارش")
+                }
+                Text("گزارش روزانه برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("گزارش روزانه برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
