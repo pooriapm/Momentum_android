@@ -37,6 +37,7 @@ data class Entitlement(
 
 @Serializable
 data class Plan(
+    @SerialName("version_id") val versionId: String? = null,
     val name: String,
     @SerialName("valid_from") val validFrom: String,
     @SerialName("valid_to") val validTo: String,
@@ -117,7 +118,12 @@ data class Recipe(
 )
 
 @Serializable
-data class Ingredient(val name: String, val amount: Double, val unit: String)
+data class Ingredient(
+    val name: String,
+    val amount: Double,
+    val unit: String,
+    @SerialName("ingredient_id") val ingredientId: String? = null,
+)
 
 @Serializable
 data class Nutrition(
@@ -160,4 +166,15 @@ data class DailyCheckin(
     val weightKg: Double? = null,
     val notes: String? = null,
     val redFlags: List<String> = emptyList(),
+)
+
+/** A shopping purchase synced with the server: [amount] of [itemKey] bought on [localDate]. */
+@Serializable
+data class ShoppingPurchase(
+    val id: String,
+    @SerialName("item_key") val itemKey: String,
+    val unit: String,
+    val amount: Double,
+    val scope: String,
+    @SerialName("local_date") val localDate: String,
 )

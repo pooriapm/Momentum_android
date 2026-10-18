@@ -12,6 +12,7 @@ import com.pooriapm.momentum.data.DailyCheckin
 import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.data.ErrorKind
 import com.pooriapm.momentum.data.Meal
+import com.pooriapm.momentum.data.ShoppingPurchase
 import com.pooriapm.momentum.data.asApi
 import com.pooriapm.momentum.data.persianError
 import com.pooriapm.momentum.onboarding.OnboardingState
@@ -61,6 +62,16 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
 
     var onboarding: OnboardingState? = null
         private set
+
+    /** Shopping purchases of the active plan (server-synced). null until first loaded. */
+    var shopping by mutableStateOf<List<ShoppingPurchase>?>(null)
+        private set
+    var shoppingError by mutableStateOf<ApiException?>(null)
+        private set
+    /** Line keys with a request in flight, so double taps cannot buy twice. */
+    var shoppingBusy by mutableStateOf<Set<String>>(emptySet())
+        private set
+    private var shoppingPlan: String? = null
 
     private var lastLoadedAt = 0L
     private var refreshJob: Job? = null
@@ -289,6 +300,73 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
                 report(raw.asApi()) { saveCheckin(checkin, onDone) }
             } finally {
                 savingCheckin = false
+            }
+        }
+    }
+
+    /** Loads purchases once per plan version; [force] reloads (pull to refresh, retry). */
+    fun loadShopping(force: Boolean = false) {
+        val plan = dashboard?.plan ?: return
+        val version = plan.versionId ?: "${plan.validFrom}:${plan.name}"
+        if (!force && shoppingPlan == version && shopping != null) return
+        if (!online) {
+            shoppingError = ApiException("offline", persianError("offline", ErrorKind.Offline), ErrorKind.Offline)
+            return
+        }
+        scope.launch {
+            try {
+                shopping = api.shoppingPurchases()
+                shoppingPlan = version
+                shoppingError = null
+            } catch (raw: Exception) {
+                shoppingError = raw.asApi()
+            }
+        }
+    }
+
+    /** Records buying [line]'s remaining amount for [scopeOf]. Shown at once, rolled back on failure. */
+    fun buyShopping(line: ShoppingLine, scopeOf: ShoppingScope) {
+        val date = dashboard?.localDate ?: return
+        val current = shopping ?: return
+        if (line.covered || line.key in shoppingBusy) return
+        if (!online) return offlineMessage { buyShopping(line, scopeOf) }
+        val unit = line.unit
+        val temp = ShoppingPurchase("local-${System.nanoTime()}", line.itemKey, unit, line.toBuy, scopeOf.wire, date)
+        shopping = current + temp
+        shoppingBusy = shoppingBusy + line.key
+        scope.launch {
+            try {
+                val saved = api.recordShoppingPurchase(line.itemKey, unit, line.toBuy, scopeOf.wire, date)
+                shopping = shopping.orEmpty().map { if (it.id == temp.id) saved else it }
+            } catch (raw: Exception) {
+                shopping = shopping.orEmpty().filterNot { it.id == temp.id }
+                val error = raw.asApi()
+                report(error) { buyShopping(line, scopeOf) }
+                if (error.code == "local_date_mismatch") refresh()
+            } finally {
+                shoppingBusy = shoppingBusy - line.key
+            }
+        }
+    }
+
+    /** Removes the newest purchase of [line] (a mistaken tick). */
+    fun unbuyShopping(line: ShoppingLine) {
+        val current = shopping ?: return
+        val purchase = lastPurchaseFor(line, current) ?: return
+        if (line.key in shoppingBusy || purchase.id.startsWith("local-")) return
+        if (!online) return offlineMessage { unbuyShopping(line) }
+        shopping = current - purchase
+        shoppingBusy = shoppingBusy + line.key
+        scope.launch {
+            try {
+                api.undoShoppingPurchase(purchase.id)
+            } catch (raw: Exception) {
+                val error = raw.asApi()
+                if (error.code == "shopping_purchase_not_found") return@launch // already gone
+                shopping = shopping.orEmpty() + purchase
+                report(error) { unbuyShopping(line) }
+            } finally {
+                shoppingBusy = shoppingBusy - line.key
             }
         }
     }

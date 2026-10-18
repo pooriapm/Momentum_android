@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -304,6 +305,26 @@ class Api(context: Context) {
     suspend fun undoMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("undo-meal", localDate, slotKey, optionKey)
     suspend fun skipMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("skip-meal", localDate, slotKey, optionKey)
     suspend fun selectMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("select-meal", localDate, slotKey, optionKey)
+
+    // ---- Shopping list purchases (synced per active plan version) ----
+
+    suspend fun shoppingPurchases(): List<ShoppingPurchase> {
+        val body = function("account-data", buildJsonObject { put("action", "shopping-purchases") }, readOnly = true)
+        val rows = body["purchases"] ?: return emptyList()
+        return json.decodeFromJsonElement(ListSerializer(ShoppingPurchase.serializer()), rows)
+    }
+
+    suspend fun recordShoppingPurchase(itemKey: String, unit: String, amount: Double, scope: String, localDate: String): ShoppingPurchase {
+        val body = function("account-data", buildJsonObject {
+            put("action", "record-shopping-purchase"); put("item_key", itemKey); put("unit", unit)
+            put("amount", amount); put("scope", scope); put("local_date", localDate)
+        }, UUID.randomUUID().toString())
+        return json.decodeFromJsonElement(ShoppingPurchase.serializer(), body["purchase"] ?: throw ApiException("invalid_response", persianError("invalid_response"), ErrorKind.Server))
+    }
+
+    suspend fun undoShoppingPurchase(id: String) {
+        function("account-data", buildJsonObject { put("action", "undo-shopping-purchase"); put("purchase_id", id) }, UUID.randomUUID().toString())
+    }
 
     /** Daily check-in, same contract as the website (checkins → save-daily). */
     suspend fun saveDailyCheckin(localDate: String, checkin: DailyCheckin) {

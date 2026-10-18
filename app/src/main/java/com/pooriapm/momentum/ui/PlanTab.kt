@@ -54,7 +54,7 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
             Text("${jalaliLabel(plan.validFrom)} تا ${jalaliLabel(plan.validTo)}", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item { ShoppingEntry(plan, dashboard.localDate) }
+        item { ShoppingEntry(state, plan, dashboard.localDate) }
         item {
             LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                 items(days.size) { index ->
