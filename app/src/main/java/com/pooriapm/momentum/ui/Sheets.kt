@@ -53,7 +53,7 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
             if (option.ingredients.isNotEmpty()) {
                 HorizontalDivider()
                 Text("مواد لازم", style = MaterialTheme.typography.titleMedium)
-                option.ingredients.forEach { Text("• ${it.name}: ${formatAmount(it.amount)} ${it.unit}") }
+                option.ingredients.forEach { Text("• ${it.name}: ${formatAmount(it.amount)} ${unitLabel(it.unit)}") }
             }
             option.recipe?.let { recipe ->
                 HorizontalDivider()
@@ -72,8 +72,7 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
     }
 }
 
-private fun formatAmount(value: Double): String =
-    (if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(java.util.Locale.ROOT, value)).fa()
+private fun formatAmount(value: Double): String = value.faDecimal()
 
 @Composable
 private fun ScoreQuestion(label: String, low: String, high: String, value: Int, onChange: (Int) -> Unit) {

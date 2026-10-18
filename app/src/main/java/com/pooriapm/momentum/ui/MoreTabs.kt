@@ -74,12 +74,12 @@ fun ProgressTab(dashboard: Dashboard) {
                 } else {
                     val first = weights.first().weightKg!!
                     val last = weights.last().weightKg!!
-                    Text("${last.toString().fa()} کیلوگرم", style = MaterialTheme.typography.headlineMedium)
+                    Text("${last.faDecimal()} کیلوگرم", style = MaterialTheme.typography.headlineMedium)
                     val diff = last - first
                     Text(
                         when {
-                            diff < -0.05 -> "${"%.1f".format(java.util.Locale.ROOT, -diff).fa()} کیلوگرم کمتر از ${jalaliLabel(weights.first().localDate)}"
-                            diff > 0.05 -> "${"%.1f".format(java.util.Locale.ROOT, diff).fa()} کیلوگرم بیشتر از ${jalaliLabel(weights.first().localDate)}"
+                            diff < -0.05 -> "${(-diff).faDecimal()} کیلوگرم کمتر از ${jalaliLabel(weights.first().localDate)}"
+                            diff > 0.05 -> "${diff.faDecimal()} کیلوگرم بیشتر از ${jalaliLabel(weights.first().localDate)}"
                             else -> "بدون تغییر"
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -87,7 +87,7 @@ fun ProgressTab(dashboard: Dashboard) {
                     weights.takeLast(7).reversed().forEach {
                         Row(Modifier.fillMaxWidth()) {
                             Text(jalaliLabel(it.localDate), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                            Text("${it.weightKg.toString().fa()} کیلوگرم", style = MaterialTheme.typography.bodyMedium)
+                            Text("${it.weightKg?.faDecimal()} کیلوگرم", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }

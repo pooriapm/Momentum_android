@@ -4,6 +4,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -144,6 +146,7 @@ fun OutlinedCardRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean = true, onOpen: () -> Unit) {
     val option = meal.chosenOption
@@ -167,7 +170,8 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (editable && meal.options.size > 1 && !done) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Up to six options: wrap instead of running off the screen.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     meal.options.forEachIndexed { index, o ->
                         FilterChip(
                             selected = o.optionKey == option?.optionKey,

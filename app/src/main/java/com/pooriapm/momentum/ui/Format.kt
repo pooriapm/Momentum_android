@@ -12,6 +12,13 @@ fun String.fa(): String = map { if (it in '0'..'9') PERSIAN_DIGITS[it - '0'] els
 fun Int.fa(): String = toString().fa()
 fun Double.faRounded(): String = roundToInt().toString().fa()
 
+/** At most one decimal, Persian digits and the Persian decimal separator: 75.0 → ۷۵, 75.46 → ۷۵٫۵. */
+fun Double.faDecimal(): String {
+    val tenths = kotlin.math.round(this * 10) / 10
+    val text = if (tenths % 1.0 == 0.0) tenths.toLong().toString() else "%.1f".format(java.util.Locale.ROOT, tenths)
+    return text.replace('.', '٫').fa()
+}
+
 private val JALALI_MONTHS = listOf(
     "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
     "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
@@ -89,3 +96,16 @@ private fun toJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
 /** Gregorian ISO date → Jalali (year, month, day), or null when it does not parse. */
 fun isoToJalali(iso: String?): Triple<Int, Int, Int>? =
     iso?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }?.let { toJalali(it) }
+
+/** Catalog units arrive in English (`g`, `tsp`…); shown in Persian, unknown ones as they are. */
+fun unitLabel(unit: String): String = when (unit.lowercase()) {
+    "g" -> "گرم"
+    "ml" -> "میلی‌لیتر"
+    "piece" -> "عدد"
+    "tbsp" -> "قاشق غذاخوری"
+    "tsp" -> "قاشق چای‌خوری"
+    "cup" -> "پیمانه"
+    "slice" -> "برش"
+    "serving" -> "وعده"
+    else -> unit
+}
