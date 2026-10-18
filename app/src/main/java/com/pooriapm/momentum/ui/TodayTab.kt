@@ -210,9 +210,10 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                             textDecoration = if (skipped) TextDecoration.LineThrough else null,
                         )
                         Text(
-                            "${it.nutrition.calories.faRounded()} کالری · ${it.nutrition.proteinG.faRounded()} گرم پروتئین",
+                            "${it.nutrition.calories.faRounded()} کالری · پروتئین ${it.nutrition.proteinG.faRounded()}",
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant,
+                            maxLines = 1,
                         )
                     }
                 }

@@ -57,7 +57,7 @@ import kotlinx.coroutines.delay
 private enum class MealPhase { Planned, Busy, Tick, Eaten, Skipped }
 
 /** Fixed footprint: every phase fits here, so the card never changes height while animating. */
-private val ControlWidth = 116.dp
+private val ControlWidth = 140.dp
 private val ControlHeight = 34.dp
 
 /**
@@ -112,9 +112,9 @@ fun MealStatusControl(
             label = "meal-status",
         ) { current ->
             when (current) {
-                MealPhase.Planned -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MealPhase.Planned -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     RoundIcon(Icons.Rounded.Check, "خوردم", MaterialTheme.colorScheme.primary, enabled, onEat)
-                    RoundIcon(Icons.Rounded.DoNotDisturbOn, "رد کردن وعده", MaterialTheme.colorScheme.onSurfaceVariant, enabled, onSkip)
+                    SkipPill(enabled, onSkip)
                 }
                 MealPhase.Busy -> Box(Modifier.size(ControlHeight), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(strokeWidth = 2.5.dp, modifier = Modifier.size(22.dp), color = MaterialTheme.colorScheme.tertiary)
@@ -214,5 +214,25 @@ private fun UndoPill(
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(14.dp))
         }
         Text("حذف ثبت", style = MaterialTheme.typography.labelMedium, color = textColor)
+    }
+}
+
+/** Skip, spelled out: an icon alone was too easy to misread. Same height as the tick. */
+@Composable
+private fun SkipPill(enabled: Boolean, onClick: () -> Unit) {
+    val color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outlineVariant
+    Row(
+        Modifier
+            .height(ControlHeight)
+            .clip(CircleShape)
+            .border(1.5.dp, color, CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "رد کردن این وعده" }
+            .padding(start = 6.dp, end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(Icons.Rounded.DoNotDisturbOn, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Text("رد کردن", style = MaterialTheme.typography.labelLarge, color = color)
     }
 }
