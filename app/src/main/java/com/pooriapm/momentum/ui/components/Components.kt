@@ -121,6 +121,8 @@ fun StepScaffold(
             }
             LinearProgressIndicator(
                 progress = { animated },
+                // Neutral track: the M3 default (secondaryContainer) reads as dark red in dark mode.
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp).height(6.dp)
                     .semantics { stateDescription = stepLabel },
             )

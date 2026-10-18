@@ -126,6 +126,8 @@ private fun TargetCard(eaten: Double, target: Double, protein: Double, carbs: Do
             }
             LinearProgressIndicator(
                 progress = { (eaten / target).toFloat().coerceIn(0f, 1f) },
+                // Neutral track: the M3 default (secondaryContainer) reads as dark red in dark mode.
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.fillMaxWidth().height(8.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

@@ -156,6 +156,7 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
         }
         LinearProgressIndicator(
             progress = { if (session.exercises.isEmpty()) 0f else done.toFloat() / session.exercises.size },
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
             strokeCap = StrokeCap.Round,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(6.dp),
         )
@@ -239,6 +240,7 @@ private fun RestTimer(endsAt: Long, total: Int, onDone: () -> Unit) {
                     LinearProgressIndicator(
                         progress = { if (total == 0) 0f else left.toFloat() / total },
                         color = MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                         strokeCap = StrokeCap.Round,
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp),
                     )
