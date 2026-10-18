@@ -32,6 +32,7 @@ data class Entitlement(
     val source: String,
     val status: String,
     @SerialName("period_end") val periodEnd: String,
+    @SerialName("period_start") val periodStart: String? = null,
 )
 
 @Serializable
