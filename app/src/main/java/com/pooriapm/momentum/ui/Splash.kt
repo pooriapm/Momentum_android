@@ -156,12 +156,24 @@ fun BrandSplash(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The logo at rest, alive: the ember ring slowly orbits the M (one turn every 14 s) and its dot
+ * breathes, forever. Quiet enough to sit above a form.
+ */
+@Composable
+fun LiveLogo(modifier: Modifier = Modifier) {
+    val motion = rememberInfiniteTransition(label = "live-logo")
+    val orbit by motion.animateFloat(0f, 360f, infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "orbit")
+    val breath by motion.animateFloat(0.82f, 1.12f, infiniteRepeatable(tween(1_600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dot")
+    Canvas(modifier) { drawLogo(disc = 1f, ring = 1f, dot = breath, mark = 1f, pulse = 0.5f, orbit = orbit, rings = false) }
+}
+
 /** The app icon, drawn in steps so each part can animate: disc, ring, dot, M, and pulse rings. */
-private fun DrawScope.drawLogo(disc: Float, ring: Float, dot: Float, mark: Float, pulse: Float, orbit: Float) {
+private fun DrawScope.drawLogo(disc: Float, ring: Float, dot: Float, mark: Float, pulse: Float, orbit: Float, rings: Boolean = true) {
     val c = center
     val discR = size.minDimension * 0.30f
     // Pulse rings radiating out once the disc is in.
-    repeat(2) { i ->
+    if (rings) repeat(2) { i ->
         val p = (pulse + i * 0.5f) % 1f
         drawCircle(
             Ember.copy(alpha = (1f - p) * 0.35f * disc.coerceIn(0f, 1f)),

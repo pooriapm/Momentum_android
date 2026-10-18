@@ -78,7 +78,7 @@ fun SignInScreen(state: AppState) {
     }
     val passwordError = when {
         password.isEmpty() -> "رمز عبور را بنویس."
-        password.length < 8 -> "رمز دست‌کم ۸ نویسه است (${password.length.fa()} از ۸)."
+        password.length < 8 -> "رمز حداقل ۸ کاراکتر است (${password.length.fa()} از ۸)."
         else -> null
     }
     fun submit() {
@@ -93,6 +93,7 @@ fun SignInScreen(state: AppState) {
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
+        LiveLogo(Modifier.size(104.dp).align(Alignment.CenterHorizontally))
         Text(
             "Momentum",
             style = MaterialTheme.typography.displaySmall,
@@ -142,7 +143,7 @@ fun SignInScreen(state: AppState) {
             placeholder = "••••••••",
             ltr = true,
             error = if (tried) passwordError else null,
-            supporting = if (create && !tried) "دست‌کم ۸ نویسه، ترکیبی از حرف و عدد" else null,
+            supporting = if (create && !tried) "حداقل ۸ کاراکتر، ترکیبی از حرف و عدد" else null,
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
