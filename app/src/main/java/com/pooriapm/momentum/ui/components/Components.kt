@@ -287,17 +287,17 @@ fun NumberStepper(label: String, value: Int, range: IntRange, unit: String = "",
 /** Decimal input such as weight; accepts Persian or Latin digits and stores Latin. */
 @Composable
 fun DecimalField(label: String, value: String, unit: String, onChange: (String) -> Unit, supporting: String? = null) {
-    OutlinedTextField(
+    MomentumField(
         value = value.fa().replace('.', '٫'),
         onValueChange = { raw ->
             val latin = raw.map { c -> if (c in '۰'..'۹') '0' + (c - '۰') else if (c == '٫' || c == ',') '.' else c }
                 .filter { it.isDigit() || it == '.' }.joinToString("")
             if (latin.count { it == '.' } <= 1 && latin.length <= 6) onChange(latin)
         },
-        label = { Text(label) },
-        suffix = { Text(unit) },
-        supportingText = supporting?.let { { Text(it) } },
-        singleLine = true,
+        label = label,
+        placeholder = "—",
+        suffix = unit,
+        supporting = supporting,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = Modifier.fillMaxWidth(),
     )
@@ -305,11 +305,12 @@ fun DecimalField(label: String, value: String, unit: String, onChange: (String) 
 
 @Composable
 fun TextAnswer(label: String, value: String, onChange: (String) -> Unit, hint: String? = null, maxLength: Int = 1000, minLines: Int = 1) {
-    OutlinedTextField(
+    MomentumField(
         value = value,
         onValueChange = { if (it.length <= maxLength) onChange(it) },
-        label = { Text(label) },
-        placeholder = hint?.let { { Text(it) } },
+        label = label,
+        placeholder = hint,
+        singleLine = minLines <= 1,
         minLines = minLines,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -351,13 +352,13 @@ fun JalaliDateField(year: Int?, month: Int?, day: Int?, years: IntProgression, o
 fun <T> Dropdown(label: String, shown: String?, options: List<Pair<T, String>>, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
-        OutlinedTextField(
+        MomentumField(
             value = shown.orEmpty(),
             onValueChange = {},
             readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            singleLine = true,
+            label = label,
+            placeholder = "انتخاب",
+            trailing = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

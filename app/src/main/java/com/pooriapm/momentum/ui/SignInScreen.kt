@@ -12,7 +12,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
+import com.pooriapm.momentum.ui.components.MomentumField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,21 +51,33 @@ fun SignInScreen(state: AppState) {
             if (create) "حسابت را بساز؛ چند سؤال کوتاه بعدی، برنامه ۳۰ روزه‌ات را می‌سازد." else "با همان حساب سایت وارد شو.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        OutlinedTextField(
+        MomentumField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("ایمیل") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            label = "ایمیل",
+            placeholder = "name@example.com",
+            ltr = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
+        var showPassword by rememberSaveable { mutableStateOf(false) }
+        MomentumField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("رمز عبور") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            label = "رمز عبور",
+            placeholder = "دست‌کم ۸ نویسه",
+            ltr = password.isNotEmpty(),
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            trailing = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                        contentDescription = if (showPassword) "پنهان کردن رمز" else "نمایش رمز",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
