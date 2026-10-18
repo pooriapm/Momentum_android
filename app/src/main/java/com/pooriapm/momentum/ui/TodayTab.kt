@@ -58,7 +58,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
         item {
             Text("سلام، ${dashboard.profile.displayName}", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${day.title?.let { " · $it" } ?: ""}",
+                "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${dayTitle(day.title)?.let { " · $it" } ?: ""}",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -214,8 +214,8 @@ fun WorkoutCard(workout: Workout) {
                 workout.exercises.forEachIndexed { index, e ->
                     Column {
                         Text("${(index + 1).fa()}. ${e.name}", style = MaterialTheme.typography.titleMedium)
-                        Text("${e.sets.fa()} ست × ${e.reps.fa()} · ${e.restSeconds.fa()} ثانیه استراحت" +
-                            (e.equipment.takeIf { it.isNotEmpty() }?.let { " · ${it.joinToString("، ")}" } ?: ""),
+                        Text("${e.sets.fa()} ست × ${rangeLabel(e.reps)} · ${e.restSeconds.fa()} ثانیه استراحت" +
+                            (e.equipment.takeIf { it.isNotEmpty() }?.let { list -> " · ${list.joinToString("، ") { equipmentLabel(it) }}" } ?: ""),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         e.substitution?.let { Text("جایگزین: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                     }

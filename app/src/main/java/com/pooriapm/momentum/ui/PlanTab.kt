@@ -83,7 +83,7 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
                 "${date?.let { weekdayNames[it.dayOfWeek.value - 1] } ?: ""} ${jalaliLabel(day.localDate)}${if (isToday) " · امروز" else ""}",
                 style = MaterialTheme.typography.titleLarge,
             )
-            day.title?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            dayTitle(day.title)?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text("هدف: ${day.targets.calories.faRounded()} کالری · ${day.targets.proteinG.faRounded()} گرم پروتئین",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

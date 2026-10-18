@@ -57,7 +57,9 @@ class MainActivity : ComponentActivity() {
             MomentumTheme {
                 // The glow runs edge to edge (behind the system bars); content stays inside them.
                 GlowBackground {
-                    Box(Modifier.safeDrawingPadding()) {
+                    // Home handles its own insets: it scrolls under the gesture bar, as on iOS.
+                    val insets = if (state.screen == Screen.Home) Modifier else Modifier.safeDrawingPadding()
+                    Box(insets) {
                         when (state.screen) {
                             Screen.SignIn -> SignInScreen(state)
                             Screen.Loading -> Centered { CircularProgressIndicator() }

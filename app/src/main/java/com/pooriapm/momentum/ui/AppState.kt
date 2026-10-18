@@ -64,6 +64,7 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
 
     private var lastLoadedAt = 0L
     private var refreshJob: Job? = null
+    private var autoRetries = 0
 
     /** Last line of defence: an unexpected error in any coroutine becomes a message, not a crash. */
     private val guard = CoroutineExceptionHandler { _, throwable ->
@@ -136,6 +137,7 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
             try {
                 dashboard = api.dashboard().also(::route)
                 loadError = null
+                autoRetries = 0
                 lastLoadedAt = System.currentTimeMillis()
             } catch (raw: Exception) {
                 val e = raw.asApi()
@@ -145,6 +147,14 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
                 }
                 if (screen == Screen.Loading) screen = Screen.Home
                 if (dashboard == null) loadError = e else report(e, ::refresh)
+                // A blip right at launch (radio waking up, captive network) should not need a tap.
+                if (dashboard == null && e.retryable && autoRetries < 3) {
+                    autoRetries++
+                    scope.launch {
+                        delay(3000L * autoRetries)
+                        if (dashboard == null) refresh()
+                    }
+                }
             } finally {
                 loading = false
             }

@@ -93,10 +93,10 @@ private val Dark = darkColorScheme(
 
 /** Colors of the soft background glows ("hue") behind the app. */
 @Immutable
-data class Glow(val base: Color, val accent: Color, val highlight: Color)
+data class Glow(val base: Color, val accent: Color, val highlight: Color, val rose: Color, val amber: Color)
 
-private val LightGlow = Glow(Color(0xFFF6F4F0), Color(0x2EE0901F), Color(0x1FD9592A))
-private val DarkGlow = Glow(Color(0xFF1D1B18), Color(0x26F0A93B), Color(0x1AFF8A5C))
+private val LightGlow = Glow(Color(0xFFF6F4F0), Color(0x4DE0901F), Color(0x3DD9592A), Color(0x33E06A8C), Color(0x2EF2B33D))
+private val DarkGlow = Glow(Color(0xFF1D1B18), Color(0x40F0A93B), Color(0x33FF8A5C), Color(0x2EE0708F), Color(0x26F2B33D))
 
 val LocalGlow = staticCompositionLocalOf { LightGlow }
 
@@ -123,31 +123,26 @@ fun MomentumTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable ()
 }
 
 /**
- * The app's backdrop: the base color with two large, very soft radial glows — saffron from the
- * top corner, ember from the bottom — so screens have depth without an image or visual noise.
+ * Soft, Apple-wallpaper-like hue: large blurred blobs of saffron, ember, rose and amber over the
+ * warm base. Gives the glass tab bar something to refract without adding visual noise to cards.
  */
+fun Modifier.hueBackground(glow: Glow): Modifier = background(glow.base).drawBehind {
+    val w = size.width
+    val h = size.height
+    fun blob(color: Color, x: Float, y: Float, r: Float) {
+        val center = Offset(w * x, h * y)
+        drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), center = center, radius = w * r), radius = w * r, center = center)
+    }
+    blob(glow.accent, 0.9f, 0.04f, 1.1f)
+    blob(glow.rose, 0.0f, 0.42f, 0.75f)
+    blob(glow.amber, 1.0f, 0.7f, 0.7f)
+    blob(glow.highlight, 0.15f, 0.96f, 0.9f)
+}
+
+/** The app's backdrop: [hueBackground] edge to edge, with the theme's content color for plain text. */
 @Composable
 fun GlowBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    val glow = LocalGlow.current
-    Box(
-        modifier
-            .fillMaxSize()
-            .background(glow.base)
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(glow.accent, Color.Transparent), center = Offset(w * 0.85f, h * 0.05f), radius = w * 1.1f),
-                    radius = w * 1.1f,
-                    center = Offset(w * 0.85f, h * 0.05f),
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(glow.highlight, Color.Transparent), center = Offset(w * 0.1f, h * 0.95f), radius = w * 0.9f),
-                    radius = w * 0.9f,
-                    center = Offset(w * 0.1f, h * 0.95f),
-                )
-            },
-    ) {
+    Box(modifier.fillMaxSize().hueBackground(LocalGlow.current)) {
         // Text without an explicit color reads the content color; without a Surface it would be black.
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) { content() }
     }

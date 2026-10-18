@@ -40,11 +40,18 @@ body-composition report.
 
 ### Design system
 
-Material 3 components with the website's dark tokens: one question per screen with
+Material 3 components with the website's "Saffron & Ink" tokens (light and dark): one question per screen with
 a determinate progress bar and a pinned primary button, selectable cards and chips with
 TalkBack roles, segmented buttons for yes/no and 1–5 scores, bottom sheets for meal
 detail and check-in, a Jalali date picker (the M3 date picker is Gregorian only), and
 48dp+ touch targets. Shared pieces live in `ui/components/Components.kt`.
+
+The tab bar is a floating Liquid Glass bar in the style of Apple's iOS 26 tab bar: clear glass
+that blurs, saturates and refracts the content behind it, over a soft hue background, with a
+selection lens you can tap or drag between tabs (`ui/components/GlassTabBar.kt`). It is built on
+[Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) (`io.github.kyant0:backdrop`,
+Apache-2.0); the tab bar and its helpers in `ui/components/liquid/` are adapted from that project's
+catalog. Real blur needs Android 12+; older devices get a denser frosted tint.
 
 ### Sign-in session
 
@@ -88,7 +95,7 @@ The website sells the same membership through Zarinpal; both end up in the same
 
 ## Setup
 
-Requirements: JDK 17+ and the Android SDK (platform 36).
+Requirements: JDK 17+ and the Android SDK (compile platform 37; targets 36).
 
 1. Copy `momentum.properties.example` to `momentum.properties` (git-ignored) and fill in:
    - `supabaseUrl`, `supabaseAnonKey`: the same public values the website uses.

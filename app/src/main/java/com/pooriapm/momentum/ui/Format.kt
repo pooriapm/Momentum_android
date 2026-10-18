@@ -109,3 +109,24 @@ fun unitLabel(unit: String): String = when (unit.lowercase()) {
     "serving" -> "وعده"
     else -> unit
 }
+
+private val GENERIC_DAY_TITLE = Regex("""^\s*(روز|Day)\s*[0-9۰-۹]+\s*$""", RegexOption.IGNORE_CASE)
+
+/** A plan day's own title, or null when it only repeats the day number ("روز 1", "Day 1"). */
+fun dayTitle(title: String?): String? = title?.trim()?.takeUnless { it.isEmpty() || GENERIC_DAY_TITLE.matches(it) }?.fa()
+
+private val EQUIPMENT_FA = mapOf(
+    "bodyweight" to "وزن بدن", "chair" to "صندلی", "dumbbells" to "دمبل", "jump-rope" to "طناب ورزشی",
+    "kettlebell" to "کتل‌بل", "resistance-band" to "کش مقاومتی", "wall" to "دیوار", "yoga-mat" to "مت یوگا",
+)
+private val CATALOG_ID = Regex("""^equipment:([a-z0-9-]+)@v\d+$""")
+
+/** Starter plans list equipment as catalog ids ("equipment:wall@v2"); show the Persian name instead. */
+fun equipmentLabel(value: String): String {
+    val slug = CATALOG_ID.matchEntire(value.trim())?.groupValues?.get(1) ?: return value
+    return EQUIPMENT_FA[slug] ?: slug.replace('-', ' ')
+}
+
+/** "8-12" → "۸ تا ۱۲": a hyphenated range reads backwards in right-to-left text. */
+fun rangeLabel(value: String): String =
+    Regex("""^\s*(\d+)\s*[-–]\s*(\d+)\s*$""").matchEntire(value)?.let { "${it.groupValues[1]} تا ${it.groupValues[2]}".fa() } ?: value.fa()
