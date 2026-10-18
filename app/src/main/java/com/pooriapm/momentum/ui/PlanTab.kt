@@ -57,6 +57,7 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        item(key = "history") { PlanHistoryCard(dashboard.planHistory) }
         items(day.meals, key = { "${day.dayIndex}-${it.slotKey}" }) { meal ->
             MealCard(state, meal, day.localDate, editable = isToday) { openMeal = meal }
         }

@@ -312,6 +312,20 @@ class Api(context: Context) {
     suspend fun skipMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("skip-meal", localDate, slotKey, optionKey)
     suspend fun selectMeal(localDate: String, slotKey: String, optionKey: String) = mealAction("select-meal", localDate, slotKey, optionKey)
 
+    // ---- Next month ----
+
+    /** The note for the next monthly plan (empty when none), or null when there is no period yet. */
+    suspend fun nextCycleNote(): String? {
+        val body = function("account-data", buildJsonObject { put("action", "next-cycle-note") }, readOnly = true)
+        val note = body["next_cycle_note"] as? JsonObject ?: return null
+        if (note["period_id"]?.jsonPrimitive?.contentOrNull == null) return null
+        return note["note"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    }
+
+    suspend fun saveNextCycleNote(note: String) {
+        function("account-data", buildJsonObject { put("action", "save-next-cycle-note"); put("note", note) }, UUID.randomUUID().toString())
+    }
+
     // ---- Account settings (goal, foods, schedule…) ----
 
     /** The raw settings document (profile, goal, dietary, schedule) as the website edits it. */

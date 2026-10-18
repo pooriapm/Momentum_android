@@ -15,6 +15,18 @@ data class Dashboard(
     val plan: Plan? = null,
     @SerialName("recent_checkins") val recentCheckins: List<Checkin> = emptyList(),
     @SerialName("progress_series") val progressSeries: List<ProgressPoint> = emptyList(),
+    @SerialName("plan_history") val planHistory: List<PlanHistoryItem> = emptyList(),
+)
+
+/** One monthly plan, current or past, as the dashboard lists them. */
+@Serializable
+data class PlanHistoryItem(
+    val id: String,
+    val cycle: Int = 1,
+    @SerialName("valid_from") val validFrom: String,
+    @SerialName("valid_to") val validTo: String,
+    val active: Boolean = false,
+    val source: String = "",
 )
 
 @Serializable

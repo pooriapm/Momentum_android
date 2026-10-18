@@ -352,18 +352,30 @@ fun NoPlanTab(state: AppState, dashboard: Dashboard) {
             Text("سلام، ${dashboard.profile.displayName}", style = MaterialTheme.typography.headlineMedium)
         }
         item {
-            InfoCard(if (dashboard.profile.onboardingStatus == "automation_blocked") "برنامه خودکار برایت مناسب نیست" else "برنامه این ماهت هنوز ساخته نشده") {
+            // Someone who already had a plan comes back to "next month", not to first-time setup.
+            val lastPlan = dashboard.planHistory.maxByOrNull { it.validTo }
+            InfoCard(
+                when {
+                    dashboard.profile.onboardingStatus == "automation_blocked" -> "برنامه خودکار برایت مناسب نیست"
+                    lastPlan != null -> "برنامه ماه قبل تمام شد"
+                    else -> "برنامه این ماهت هنوز ساخته نشده"
+                },
+            ) {
                 if (dashboard.profile.onboardingStatus == "automation_blocked") {
                     Text("بر اساس پاسخ‌های ایمنی، ساخت خودکار برنامه متوقف است. لطفاً با یک متخصص سلامت مشورت کن.")
                 } else {
-                    Text("راه‌اندازی کامل است. با یک دکمه، برنامه ۳۰ روزه غذا و تمرینت ساخته می‌شود.")
+                    Text(
+                        if (lastPlan != null) "برنامه قبلی تا ${jalaliLabel(lastPlan.validTo)} بود. برنامه ۳۰ روز بعد با ترجیحات فعلی‌ات ساخته می‌شود."
+                        else "راه‌اندازی کامل است. با یک دکمه، برنامه ۳۰ روزه غذا و تمرینت ساخته می‌شود.",
+                    )
                     Button(onClick = state::generatePlan, enabled = !state.generating, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                        if (state.generating) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ساخت برنامه")
+                        if (state.generating) CircularProgressIndicator(strokeWidth = 2.dp) else Text(if (lastPlan != null) "ساخت برنامه ماه بعد" else "ساخت برنامه")
                     }
                     if (state.generating) Text("معمولاً یکی دو دقیقه طول می‌کشد. می‌توانی برنامه را ببندی؛ کار ادامه دارد.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+        item { PlanHistoryCard(dashboard.planHistory) }
     }
 }

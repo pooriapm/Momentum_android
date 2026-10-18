@@ -69,6 +69,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     var openMeal by remember { mutableStateOf<Meal?>(null) }
     var checkinOpen by rememberSaveable { mutableStateOf(false) }
     var runnerOpen by rememberSaveable { mutableStateOf(false) }
+    var prefsOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(dashboard.localDate, day.workout != null) { if (day.workout != null) state.loadWorkout() }
     val done = day.meals.filter { it.completionStatus == "completed" }
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
@@ -98,6 +99,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                 }
             }
         }
+        item { PlanEndingCard(state, dashboard) { prefsOpen = true } }
         item { CheckinCard(dashboard.checkin != null) { checkinOpen = true } }
         item { Text("وعده‌های امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
         items(day.meals, key = { it.slotKey }) { meal -> MealCard(state, meal, day.localDate) { openMeal = meal } }
@@ -111,6 +113,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     }
     if (checkinOpen) CheckinSheet(state) { checkinOpen = false }
     if (runnerOpen) WorkoutRunner(state) { runnerOpen = false }
+    if (prefsOpen) PreferencesScreen(state) { prefsOpen = false }
 }
 
 @Composable
