@@ -86,6 +86,9 @@ val GlassTabBarClearance: Dp = 64.dp + 12.dp
 /** Real backdrop blur needs Android 12; below it the glass gets a denser tint so text behind stays unreadable. */
 private val hasBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
+/** A light frost only: enough to keep labels readable, not enough to hide what is behind. */
+private val GlassBlur = 2.dp
+
 private val LocalTabScale = staticCompositionLocalOf { { 1f } }
 
 /**
@@ -106,8 +109,9 @@ fun GlassTabBar(
     val accent = MaterialTheme.colorScheme.primary
     val glass = when {
         !hasBlur -> MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-        dark -> Color(0xFF1D1B18).copy(alpha = 0.4f)
-        else -> Color(0xFFFAFAFA).copy(alpha = 0.4f)
+        // Lightly tinted: the content behind stays visible, as through real glass.
+        dark -> Color(0xFF1D1B18).copy(alpha = 0.3f)
+        else -> Color(0xFFFFFFFF).copy(alpha = 0.3f)
     }
     val haptics = LocalHapticFeedback.current
     val onSelectState by rememberUpdatedState(onSelect)
@@ -201,7 +205,7 @@ fun GlassTabBar(
                     shape = { Capsule() },
                     effects = {
                         vibrancy()
-                        blur(8.dp.toPx())
+                        blur(GlassBlur.toPx())
                         lens(24.dp.toPx(), 24.dp.toPx())
                     },
                     layerBlock = {
@@ -234,7 +238,7 @@ fun GlassTabBar(
                         effects = {
                             val progress = lens.pressProgress
                             vibrancy()
-                            blur(8.dp.toPx())
+                            blur(GlassBlur.toPx())
                             lens(24.dp.toPx() * progress, 24.dp.toPx() * progress)
                         },
                         highlight = { Highlight.Default.copy(alpha = lens.pressProgress) },

@@ -110,6 +110,17 @@ Requirements: JDK 17+ and the Android SDK (compile platform 37; targets 36).
 
 The APK lands in `app/build/outputs/apk/debug/`.
 
+### Fast dev loop
+
+```powershell
+.\scripts\dev.ps1          # build incrementally, install, open the app (add -Logs to follow errors)
+```
+
+It uses a connected phone when there is one (fastest: enable USB or wireless debugging), otherwise
+it boots the light `Momentum_Light` emulator: plain Android 36 image without Google services,
+720×1600, 2 GB RAM, host GPU, quick boot. An edit-to-running cycle takes about 15 seconds.
+For pure UI work, Compose previews in Android Studio need no emulator at all.
+
 ### Server configuration (in the website repo)
 
 The `payments` Edge Function needs these secrets: `PAYMENTS_MASTER_ENABLED=true`,
