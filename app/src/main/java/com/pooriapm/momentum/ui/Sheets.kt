@@ -75,8 +75,8 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
                 // Stays open so the tick animation plays here; the sheet shows the live meal.
                 MealStatusControl(
                     status = meal.completionStatus,
-                    busy = state.busyMeal == meal.slotKey,
-                    enabled = state.busyMeal == null,
+                    busy = false,
+                    enabled = !state.mealPending(localDate, meal.slotKey),
                     onEat = { state.completeMeal(meal, localDate) },
                     onSkip = { state.skipMeal(meal, localDate) },
                     onUndo = { state.undoMeal(meal, localDate) },

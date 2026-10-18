@@ -16,6 +16,8 @@ import com.pooriapm.momentum.data.ShoppingPurchase
 import com.pooriapm.momentum.data.WorkoutSession
 import kotlinx.serialization.json.JsonObject
 import com.pooriapm.momentum.data.asApi
+import com.pooriapm.momentum.data.findMeal
+import com.pooriapm.momentum.data.withMeal
 import com.pooriapm.momentum.data.persianError
 import com.pooriapm.momentum.onboarding.OnboardingState
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -55,8 +57,10 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
     /** Why the dashboard could not load; shown full-screen with a retry, never an endless spinner. */
     var loadError by mutableStateOf<ApiException?>(null)
         private set
-    var busyMeal by mutableStateOf<String?>(null)
+    /** Meals (date|slot) whose change is still being saved; their controls ignore taps meanwhile. */
+    var pendingMeals by mutableStateOf<Set<String>>(emptySet())
         private set
+    private var syncJob: Job? = null
     var generating by mutableStateOf(false)
         private set
     var savingCheckin by mutableStateOf(false)
@@ -91,7 +95,7 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
     private val guard = CoroutineExceptionHandler { _, throwable ->
         val error = runCatching { throwable.asApi() }.getOrNull() ?: return@CoroutineExceptionHandler
         loading = false
-        busyMeal = null
+        pendingMeals = emptySet()
         message = UiMessage(error.message.orEmpty())
     }
     private val scope: CoroutineScope get() = CoroutineScope(viewModelScope.coroutineContext + guard)
@@ -251,22 +255,48 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
         }
     }
 
-    private fun mutate(slotKey: String, retry: () -> Unit, block: suspend () -> Unit) {
+    fun mealPending(localDate: String, slotKey: String) = "$localDate|$slotKey" in pendingMeals
+
+    /**
+     * Optimistic meal change: the card shows the new state at once ([optimistic] edits the meal in
+     * the cached dashboard), the request runs in the background, and on failure that meal alone is
+     * put back as it was and the error shown. The day's totals are refreshed after the last change.
+     */
+    private fun mutate(localDate: String, slotKey: String, retry: () -> Unit, optimistic: (Meal) -> Meal, block: suspend () -> Unit) {
+        val key = "$localDate|$slotKey"
         if (!online) return offlineMessage(retry)
-        if (busyMeal != null) return
+        if (key in pendingMeals) return
+        val before = dashboard?.findMeal(localDate, slotKey) ?: return
+        dashboard = dashboard?.withMeal(localDate, slotKey, optimistic)
+        pendingMeals = pendingMeals + key
         scope.launch {
-            busyMeal = slotKey
             try {
                 block()
-                dashboard = api.dashboard()
-                lastLoadedAt = System.currentTimeMillis()
+                syncDashboardSoon()
             } catch (raw: Exception) {
+                // Roll back only this meal; other changes made meanwhile stay.
+                dashboard = dashboard?.withMeal(localDate, slotKey) { before }
                 val error = raw.asApi()
                 report(error, retry.takeUnless { error.code == "local_date_mismatch" })
                 // The card was stale (another device, or the day rolled over): show the truth.
                 if (error.kind == ErrorKind.Conflict || error.kind == ErrorKind.NotFound) refresh()
             } finally {
-                busyMeal = null
+                pendingMeals = pendingMeals - key
+            }
+        }
+    }
+
+    /** One quiet reload once changes settle, so several quick ticks cost one dashboard call. */
+    private fun syncDashboardSoon() {
+        syncJob?.cancel()
+        syncJob = scope.launch {
+            delay(1200)
+            if (pendingMeals.isNotEmpty()) return@launch // the last change will schedule another
+            runCatching { api.dashboard() }.onSuccess {
+                if (pendingMeals.isEmpty()) {
+                    dashboard = it
+                    lastLoadedAt = System.currentTimeMillis()
+                }
             }
         }
     }
@@ -278,26 +308,34 @@ class AppState(val api: Api, private val connectivity: Connectivity) : ViewModel
     fun completeMeal(meal: Meal, localDate: String) {
         if (meal.completionStatus == "completed") return
         val option = meal.chosenOption ?: return
-        mutate(meal.slotKey, { completeMeal(meal, localDate) }) { api.completeMeal(localDate, meal.slotKey, option.optionKey) }
+        mutate(localDate, meal.slotKey, { completeMeal(meal, localDate) }, { it.copy(completionStatus = "completed") }) {
+            api.completeMeal(localDate, meal.slotKey, option.optionKey)
+        }
     }
 
     fun skipMeal(meal: Meal, localDate: String) {
         if (meal.completionStatus != "planned") return
         val option = meal.chosenOption ?: return
-        mutate(meal.slotKey, { skipMeal(meal, localDate) }) { api.skipMeal(localDate, meal.slotKey, option.optionKey) }
+        mutate(localDate, meal.slotKey, { skipMeal(meal, localDate) }, { it.copy(completionStatus = "skipped") }) {
+            api.skipMeal(localDate, meal.slotKey, option.optionKey)
+        }
     }
 
     /** Back to planned, from either eaten or skipped. */
     fun undoMeal(meal: Meal, localDate: String) {
         if (meal.completionStatus == "planned") return
         val option = meal.chosenOption ?: return
-        mutate(meal.slotKey, { undoMeal(meal, localDate) }) { api.undoMeal(localDate, meal.slotKey, option.optionKey) }
+        mutate(localDate, meal.slotKey, { undoMeal(meal, localDate) }, { it.copy(completionStatus = "planned") }) {
+            api.undoMeal(localDate, meal.slotKey, option.optionKey)
+        }
     }
 
     fun chooseOption(meal: Meal, localDate: String, optionKey: String) {
         // Only a planned meal can switch; the server locks eaten and skipped ones.
         if (optionKey == meal.chosenOption?.optionKey || meal.completionStatus != "planned") return
-        mutate(meal.slotKey, { chooseOption(meal, localDate, optionKey) }) { api.selectMeal(localDate, meal.slotKey, optionKey) }
+        mutate(localDate, meal.slotKey, { chooseOption(meal, localDate, optionKey) }, { it.copy(selectedOptionKey = optionKey) }) {
+            api.selectMeal(localDate, meal.slotKey, optionKey)
+        }
     }
 
     fun saveCheckin(checkin: DailyCheckin, onDone: () -> Unit) {

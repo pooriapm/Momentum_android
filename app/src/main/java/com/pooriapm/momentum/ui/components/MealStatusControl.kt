@@ -84,12 +84,16 @@ fun MealStatusControl(
         else -> MealPhase.Planned
     }
     var phase by remember { mutableStateOf(settled()) }
+    // Status this control last showed; a change to "completed" while on screen plays the tick.
+    var shown by remember { mutableStateOf(status) }
     LaunchedEffect(status, busy) {
         if (busy) {
             phase = MealPhase.Busy
             return@LaunchedEffect
         }
-        if (status == "completed" && phase == MealPhase.Busy) {
+        val justEaten = status == "completed" && (phase == MealPhase.Busy || shown != "completed")
+        shown = status
+        if (justEaten) {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             phase = MealPhase.Tick
             delay(850)

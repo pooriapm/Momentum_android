@@ -172,7 +172,7 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
     val option = meal.chosenOption
     val status = meal.completionStatus
     val skipped = status == "skipped"
-    val busy = state.busyMeal == meal.slotKey
+    val busy = false // changes are instant; the control only blocks taps while saving
     val colors = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -217,7 +217,7 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                         MealStatusControl(
                             status = status,
                             busy = busy,
-                            enabled = state.busyMeal == null,
+                            enabled = !state.mealPending(localDate, meal.slotKey),
                             onEat = { state.completeMeal(meal, localDate) },
                             onSkip = { state.skipMeal(meal, localDate) },
                             onUndo = { state.undoMeal(meal, localDate) },
@@ -229,7 +229,7 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
             if (meal.options.size > 1) {
                 OptionStrip(
                     meal = meal,
-                    selectable = editable && status == "planned" && state.busyMeal == null,
+                    selectable = editable && status == "planned" && !state.mealPending(localDate, meal.slotKey),
                     onSelect = { state.chooseOption(meal, localDate, it) },
                 )
             }

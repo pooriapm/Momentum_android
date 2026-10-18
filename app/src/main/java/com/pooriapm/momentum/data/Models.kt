@@ -223,3 +223,17 @@ data class WorkoutSetLog(
     @SerialName("set_number") val setNumber: Int,
     val status: String, // planned, completed, skipped
 )
+
+fun Dashboard.findMeal(localDate: String, slotKey: String): Meal? {
+    val plan = plan ?: return null
+    val day = if (plan.day.localDate == localDate) plan.day else plan.days.firstOrNull { it.localDate == localDate }
+    return day?.meals?.firstOrNull { it.slotKey == slotKey }
+}
+
+/** A copy with one meal changed, in both the current day and the 30-day list. */
+fun Dashboard.withMeal(localDate: String, slotKey: String, change: (Meal) -> Meal): Dashboard {
+    val plan = plan ?: return this
+    fun PlanDay.patched() = if (this.localDate != localDate) this
+        else copy(meals = meals.map { if (it.slotKey == slotKey) change(it) else it })
+    return copy(plan = plan.copy(day = plan.day.patched(), days = plan.days.map { it.patched() }))
+}
