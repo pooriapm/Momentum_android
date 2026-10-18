@@ -50,6 +50,10 @@ import com.pooriapm.momentum.ui.components.MomentumField
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+/** A plan already built for next month (created in the current plan's last days), if any. */
+fun upcomingPlan(dashboard: Dashboard): PlanHistoryItem? =
+    dashboard.planHistory.filter { it.validFrom > dashboard.localDate }.minByOrNull { it.validFrom }
+
 /** Days left in the current plan including today, or null without a plan. */
 fun daysLeft(dashboard: Dashboard): Int? {
     val plan = dashboard.plan ?: return null
@@ -82,6 +86,10 @@ fun PlanEndingCard(state: AppState, dashboard: Dashboard, onEditPreferences: () 
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            upcomingPlan(dashboard)?.let {
+                Text("برنامه ماه بعد آماده است و از ${jalaliLabel(it.validFrom)} شروع می‌شود.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { noteOpen = true }) {
                     Icon(Icons.Outlined.EditNote, contentDescription = null, modifier = Modifier.size(18.dp))

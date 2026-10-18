@@ -71,7 +71,7 @@ val NON_RETRYABLE_CODES = setOf(
 
 private val NO_ACCESS_CODES = setOf(
     "ALPHA_DISABLED", "ALPHA_NOT_INVITED", "PUBLIC_BETA_DISABLED",
-    "entitlement_required", "PAYMENT_METHOD_REQUIRED", "quota_exceeded",
+    "entitlement_required", "SUBSCRIPTION_INACTIVE", "PAYMENT_METHOD_REQUIRED", "quota_exceeded",
 )
 
 /** Persian copy for server codes; falls back to a message per [ErrorKind]. */
@@ -114,6 +114,7 @@ fun persianError(code: String, kind: ErrorKind? = null): String = when (code) {
     "next_cycle_period_unavailable" -> "یادداشت ماه بعد هنوز برای برنامه تو فعال نیست."
     "invalid_next_cycle_note" -> "یادداشت حداکثر ۵۰۰ نویسه است."
     "starter_plan_profile_incomplete" -> "اول راه‌اندازی حساب را کامل کن."
+    "SUBSCRIPTION_INACTIVE" -> "برای ماه دوم به بعد عضویت فعال لازم است؛ از «حساب من» عضویت را فعال کن و دوباره بساز."
     "unsupported_action" -> "این قابلیت هنوز روی سرور فعال نشده است."
     "ai_temporarily_disabled" -> "ساخت هوشمند برنامه فعلاً در دسترس نیست."
     "session_expired" -> "مدتی است وارد نشده‌ای؛ برای امنیت دوباره وارد شو."

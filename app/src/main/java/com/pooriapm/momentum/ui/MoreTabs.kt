@@ -353,7 +353,7 @@ fun NoPlanTab(state: AppState, dashboard: Dashboard) {
         }
         item {
             // Someone who already had a plan comes back to "next month", not to first-time setup.
-            val lastPlan = dashboard.planHistory.maxByOrNull { it.validTo }
+            val lastPlan = dashboard.planHistory.filter { it.validFrom <= dashboard.localDate }.maxByOrNull { it.validTo }
             InfoCard(
                 when {
                     dashboard.profile.onboardingStatus == "automation_blocked" -> "برنامه خودکار برایت مناسب نیست"
