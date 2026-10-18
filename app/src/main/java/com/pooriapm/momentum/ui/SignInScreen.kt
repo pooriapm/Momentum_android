@@ -1,74 +1,155 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.VisualTransformation
-import com.pooriapm.momentum.ui.components.MomentumField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pooriapm.momentum.ui.components.MomentumField
 
+private val EmailPattern = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$")
+
+/**
+ * Email sign-in and sign-up. Email and password are typed left to right (they are always Latin);
+ * validation explains itself instead of silently disabling the button, and the keyboard's next/done
+ * keys move through the form.
+ */
 @Composable
 fun SignInScreen(state: AppState) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var create by rememberSaveable { mutableStateOf(false) }
+    var showPassword by rememberSaveable { mutableStateOf(false) }
+    // Errors appear once the user has tried, not while they are still typing.
+    var tried by rememberSaveable { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val passwordFocus = remember { FocusRequester() }
+
+    val cleanEmail = email.trim()
+    val emailError = when {
+        cleanEmail.isEmpty() -> "ایمیلت را بنویس."
+        !EmailPattern.matches(cleanEmail) -> "ایمیل درست نیست؛ مثل name@example.com"
+        else -> null
+    }
+    val passwordError = when {
+        password.isEmpty() -> "رمز عبور را بنویس."
+        password.length < 8 -> "رمز دست‌کم ۸ نویسه است (${password.length.fa()} از ۸)."
+        else -> null
+    }
+    fun submit() {
+        tried = true
+        if (emailError == null && passwordError == null && !state.loading) {
+            focus.clearFocus()
+            state.signIn(cleanEmail, password, create)
+        }
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize().imePadding().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, androidx.compose.ui.Alignment.CenterVertically),
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
-        Text("Momentum", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
         Text(
-            if (create) "یک ماه غذا و تمرین، چیده‌شده برای خودت." else "به برنامه‌ات خوش برگشتی.",
-            style = MaterialTheme.typography.headlineSmall,
+            "Momentum",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
-        Text(
-            if (create) "حسابت را بساز؛ چند سؤال کوتاه بعدی، برنامه ۳۰ روزه‌ات را می‌سازد." else "با همان حساب سایت وارد شو.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Momentum: small steps that keep the movement going.
+            Text(
+                "قدم‌های کوچک، هر روز؛ حرکت ادامه دارد.",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            if (create) {
+                Text(
+                    "حسابت را بساز؛ چند سؤال کوتاه بعدی، برنامه ۳۰ روزه‌ات را می‌سازد.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         MomentumField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it.replace(" ", "") },
             label = "ایمیل",
             placeholder = "name@example.com",
             ltr = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+            error = if (tried) emailError else null,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                capitalization = KeyboardCapitalization.None,
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
             modifier = Modifier.fillMaxWidth(),
         )
-        var showPassword by rememberSaveable { mutableStateOf(false) }
         MomentumField(
             value = password,
             onValueChange = { password = it },
             label = "رمز عبور",
-            placeholder = "دست‌کم ۸ نویسه",
-            ltr = password.isNotEmpty(),
+            placeholder = "••••••••",
+            ltr = true,
+            error = if (tried) passwordError else null,
+            supporting = if (create && !tried) "دست‌کم ۸ نویسه، ترکیبی از حرف و عدد" else null,
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
             trailing = {
                 IconButton(onClick = { showPassword = !showPassword }) {
                     Icon(
@@ -78,28 +159,43 @@ fun SignInScreen(state: AppState) {
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().focusRequester(passwordFocus),
         )
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        state.notice?.let { Text(it, color = MaterialTheme.colorScheme.tertiary) }
+        AnimatedVisibility(state.error != null || state.notice != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                state.notice?.let { Text(it, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium) }
+            }
+        }
+        // Always tappable: a tap with missing input shows what is wrong instead of doing nothing.
         Button(
-            onClick = { state.signIn(email, password, create) },
-            enabled = !state.loading && email.contains('@') && password.length >= 8,
+            onClick = { submit() },
+            enabled = !state.loading,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
         ) {
-            if (state.loading) CircularProgressIndicator(strokeWidth = 2.dp) else Text(if (create) "ساخت حساب" else "ورود")
+            if (state.loading) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            else Text(if (create) "ساخت حساب" else "ورود")
         }
-        TextButton(onClick = { create = !create; state.error = null; state.notice = null }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (create) "حساب داری؟ وارد شو" else "حساب نداری؟ بساز")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(if (create) "حساب داری؟" else "حساب نداری؟", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = {
+                create = !create
+                tried = false
+                state.error = null
+                state.notice = null
+            }) { Text(if (create) "وارد شو" else "حساب بساز") }
         }
-        val emailReady = email.contains('@') && !state.loading
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = { state.sendAuthEmail(email, reset = true) }, enabled = emailReady) { Text("رمز را فراموش کردی؟") }
-            TextButton(onClick = { state.sendAuthEmail(email, reset = false) }, enabled = emailReady) { Text("ایمیل تأیید نیامد؟") }
-        }
-        if (!email.contains('@')) {
-            Text("برای این دو گزینه اول ایمیلت را بنویس.", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Account help: needs a valid email, and says so when it is missing.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TextButton(onClick = {
+                tried = true
+                if (emailError == null) state.sendAuthEmail(cleanEmail, reset = true)
+            }, enabled = !state.loading) { Text("فراموشی رمز", style = MaterialTheme.typography.bodyMedium) }
+            TextButton(onClick = {
+                tried = true
+                if (emailError == null) state.sendAuthEmail(cleanEmail, reset = false)
+            }, enabled = !state.loading) { Text("ارسال دوباره ایمیل تأیید", style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }

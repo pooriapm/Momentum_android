@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -94,6 +96,10 @@ fun MomentumField(
         // follow a Latin word's LTR direction), so typed text always lines up with the label.
         textAlign = if (ltr || !rtl) TextAlign.Left else TextAlign.Right,
     )
+    // The hint sits where typed text will start, so it lines up with the input in LTR fields too.
+    val hintStyle = textStyle.copy(
+        color = colors.onSurfaceVariant.copy(alpha = 0.7f),
+    )
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -115,21 +121,26 @@ fun MomentumField(
             interactionSource = interaction,
             modifier = Modifier.fillMaxWidth(),
             decorationBox = { inner ->
+                // Email, password, codes: the whole field runs left to right (text on the left,
+                // icons on the right), as in every app, even inside the Persian screen.
+                CompositionLocalProvider(LocalLayoutDirection provides if (ltr) LayoutDirection.Ltr else LocalLayoutDirection.current) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 54.dp)
+                        .then(if (singleLine) Modifier.height(56.dp) else Modifier.heightIn(min = 56.dp))
                         .clip(FieldShape)
                         .background(container)
                         .border(borderWidth, border, FieldShape)
-                        .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 14.dp, bottom = 14.dp),
+                        // Single-line fields have one fixed height (a trailing icon button must not
+                        // make one field taller than its neighbour); multi-line ones grow.
+                        .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = if (singleLine) 0.dp else 14.dp, bottom = if (singleLine) 0.dp else 14.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
                     // The text box spans the whole field, so text starts at the start edge (right in
                     // Persian) whatever its own direction; short Latin text no longer floats mid-field.
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty() && placeholder != null) {
-                            Text(placeholder, style = textStyle.copy(color = colors.onSurfaceVariant.copy(alpha = 0.7f)), modifier = Modifier.fillMaxWidth())
+                            Text(placeholder, style = hintStyle, modifier = Modifier.fillMaxWidth())
                         }
                         Box(Modifier.fillMaxWidth()) { inner() }
                     }
@@ -138,6 +149,7 @@ fun MomentumField(
                         Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                     }
                     trailing?.invoke()
+                }
                 }
             },
         )
