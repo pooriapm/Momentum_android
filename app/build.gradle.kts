@@ -42,6 +42,18 @@ android {
         buildConfigField("String", "EXERCISE_MEDIA_URL", "\"\"")
     }
 
+    // Release signing from momentum.properties (keystore and passwords stay out of git). Bazaar only
+    // accepts updates signed with the same key, so the keystore must be kept and backed up forever.
+    val releaseStore = momentum.getProperty("releaseStoreFile").orEmpty()
+    signingConfigs {
+        if (releaseStore.isNotBlank()) create("release") {
+            storeFile = rootProject.file(releaseStore)
+            storePassword = momentum.getProperty("releaseStorePassword")
+            keyAlias = momentum.getProperty("releaseKeyAlias")
+            keyPassword = momentum.getProperty("releaseKeyPassword")
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "EXERCISE_MEDIA_URL", momentumValue("exerciseMediaUrl"))
@@ -50,6 +62,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseStore.isNotBlank()) signingConfig = signingConfigs.getByName("release")
         }
         // Release-speed build for testing on the emulator next to the debug app (own id and data,
         // debug signing). Debug builds run unoptimized and are several times slower to start.

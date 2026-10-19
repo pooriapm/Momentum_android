@@ -17,3 +17,10 @@ bazaarProductId=membership_month
 # (default: <supabaseUrl>/storage/v1/object/public/exercise-media/v1/), e.g. on the emulator:
 # python -m http.server 8765 --directory media, then http://10.0.2.2:8765/exercise/v1/
 exerciseMediaUrl=
+
+# Release signing (Cafe Bazaar). Create the keystore once with keytool, keep it and its passwords
+# backed up: every future update must be signed with the same key.
+releaseStoreFile=momentum-release.jks
+releaseStorePassword=YOUR_STORE_PASSWORD
+releaseKeyAlias=momentum
+releaseKeyPassword=YOUR_KEY_PASSWORD
