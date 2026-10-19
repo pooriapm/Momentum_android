@@ -200,7 +200,8 @@ private fun ProgressRing(index: Int, count: Int, todayIndex: Int) {
             drawArc(colors.surfaceVariant, -90f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
             drawArc(colors.primary, -90f, 360f * fraction * direction, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
             if (todayIndex in 0 until count) {
-                val angle = Math.toRadians((-90.0 + 360.0 * (todayIndex + 0.5) / count * direction))
+                // Where the filled arc ends on today, so on today's page the dot sits exactly on its tip.
+                val angle = Math.toRadians((-90.0 + 360.0 * (todayIndex + 1) / count * direction))
                 val r = arcSize.width / 2
                 val c = Offset(size.width / 2 + r * kotlin.math.cos(angle).toFloat(), size.height / 2 + r * kotlin.math.sin(angle).toFloat())
                 drawCircle(colors.surface, stroke * 0.55f, c)
