@@ -403,11 +403,11 @@ class Api(context: Context) {
     }
 
     /** Sets today's water total (not an increment), so repeating it is harmless. */
-    suspend fun saveWater(localDate: String, waterMl: Int) {
+    suspend fun saveWater(localDate: String, waterMl: Int, timezone: String?) {
         function("checkins", buildJsonObject {
             put("action", "save-water")
             put("local_date", localDate)
-            put("timezone", java.util.TimeZone.getDefault().id)
+            put("timezone", timezone ?: java.util.TimeZone.getDefault().id)
             put("water_ml", waterMl)
         }, UUID.randomUUID().toString())
     }

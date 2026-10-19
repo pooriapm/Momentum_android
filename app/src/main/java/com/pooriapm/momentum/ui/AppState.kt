@@ -99,7 +99,7 @@ class AppState(
         waterSync = scope.launch {
             delay(1500)
             // Until the server has save-water this fails quietly; the phone keeps the count.
-            runCatching { api.saveWater(date, waterMl) }
+            runCatching { api.saveWater(date, waterMl, dashboard?.profile?.timezone) }
         }
     }
 

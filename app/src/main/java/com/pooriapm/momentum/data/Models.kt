@@ -55,6 +55,8 @@ data class Profile(
     @SerialName("display_name") val displayName: String,
     @SerialName("onboarding_status") val onboardingStatus: String,
     @SerialName("email_confirmed") val emailConfirmed: Boolean? = null,
+    /** Profile time zone; the server checks writes against it, not the phone's. */
+    val timezone: String? = null,
 )
 
 @Serializable
