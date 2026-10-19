@@ -2,8 +2,12 @@ package com.pooriapm.momentum.widget
 
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +38,7 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.RowScope
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
@@ -90,6 +95,19 @@ private val Water = Color(0xFF3DA5F4)
 private val WaterSoft = Color(0xFFE3F2FD)
 private val WaterEmpty = Color(0xFFC6E2F7)
 private val SaffronSoft = Color(0xFFF6E7CF)
+private val SkippedTone = Color(0xFFB9B1A5)
+
+// One grid for every size: the same gap, radius, badge and button everywhere.
+private val GAP = 8.dp
+private val INNER_RADIUS = 16.dp
+private val BADGE = 26.dp
+private val BUTTON = 36.dp
+private val BUTTON_SMALL = 32.dp
+
+private val waterText = TextStyle(color = ColorProvider(Water), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Right)
+
+/** Whether the launcher lays rows out right-to-left (a Persian phone) or left-to-right. */
+private val LocalRtlDevice = staticCompositionLocalOf { false }
 
 private val SMALL = DpSize(110.dp, 40.dp)
 private val COMPACT = DpSize(170.dp, 100.dp)
@@ -110,7 +128,8 @@ class MomentumWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val snapshot = (prefs[SnapshotKey] ?: load(context)?.let { encode(it) })?.let(::decode)
             val water = prefs[WaterKey]?.toIntOrNull() ?: snapshot?.let { waterOf(context, it.localDate) } ?: 0
-            GlanceTheme { Content(snapshot, water, prefs[BusyKey]) }
+            val rtlDevice = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            GlanceTheme { Content(snapshot, water, prefs[BusyKey], rtlDevice) }
         }
     }
 
@@ -118,244 +137,329 @@ class MomentumWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SMALL, COMPACT, MEDIUM, LARGE))
 
     @Composable
-    private fun Content(snapshot: WidgetSnapshot?, waterMl: Int, busy: String?) {
+    private fun Content(snapshot: WidgetSnapshot?, waterMl: Int, busy: String?, rtlDevice: Boolean) {
         val today = java.time.LocalDate.now().toString()
         val current = snapshot?.takeIf { it.localDate == today }
         val size = LocalSize.current
-        Box(
-            GlanceModifier.fillMaxSize().background(ColorProvider(Cream)).cornerRadius(22.dp)
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-            contentAlignment = Alignment.Center,
-        ) {
-            when {
-                current == null -> Text(
-                    rtl("Momentum · برای دیدن برنامه امروز اپ را باز کن"),
-                    style = TextStyle(color = ColorProvider(Muted), fontSize = 12.sp, textAlign = TextAlign.Center),
-                )
-                size.height >= LARGE.height -> Large(current, waterMl, busy)
-                size.height >= MEDIUM.height -> Medium(current, waterMl, busy)
-                size.height >= COMPACT.height -> Compact(current, waterMl, busy)
-                else -> Small(current, waterMl, busy)
+        CompositionLocalProvider(LocalRtlDevice provides rtlDevice) {
+            Box(
+                GlanceModifier.fillMaxSize().background(ColorProvider(Cream)).cornerRadius(24.dp)
+                    .padding(if (size.height < MEDIUM.height) 10.dp else 14.dp)
+                    .clickable(actionStartActivity<MainActivity>()),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    current == null -> Text(
+                        rtl("Momentum · برای دیدن برنامه امروز اپ را باز کن"),
+                        style = TextStyle(color = ColorProvider(Muted), fontSize = 12.sp, textAlign = TextAlign.Center),
+                    )
+                    size.height >= LARGE.height -> Large(current, waterMl, busy)
+                    size.height >= MEDIUM.height -> Medium(current, waterMl, busy)
+                    size.height >= COMPACT.height -> Compact(current, waterMl, busy)
+                    else -> Small(current, waterMl, busy)
+                }
             }
         }
     }
 
-    /** One row: next meal and its tick, water as a short line. */
+    /** One row: the next meal and water as text, with "✓" and "+" beside it. */
     @Composable
     private fun Small(day: WidgetSnapshot, waterMl: Int, busy: String?) {
         val next = day.meals.firstOrNull { it.status == "planned" }
-        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(GlanceModifier.defaultWeight()) {
-                Text(
-                    rtl(next?.option ?: "همه وعده‌ها ثبت شد 🎉"),
-                    maxLines = 1,
-                    style = TextStyle(color = ColorProvider(if (next == null) Green else Ink), fontSize = 14.sp, fontWeight = FontWeight.Bold),
+        RtlRow(
+            GlanceModifier.fillMaxWidth(),
+            middle = {
+                TextBlock(
+                    GlanceModifier.defaultWeight(),
+                    title = next?.option ?: "همه وعده‌ها ثبت شد 🎉",
+                    subtitle = "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)} لیتر",
+                    titleColor = if (next == null) Green else Ink,
+                    titleSize = 14,
                 )
-                Text(
-                    rtl("${next?.title?.let { "$it · " } ?: ""}💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)}"),
-                    maxLines = 1,
-                    style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp),
-                )
-            }
-            Spacer(GlanceModifier.width(6.dp))
-            ActionButton("+", busy == BUSY_WATER, Water, busy == null, actionRunCallback<AddWaterAction>(), small = true)
-            if (next != null) {
-                Spacer(GlanceModifier.width(6.dp))
-                ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>())
-            }
-        }
+            },
+            end = {
+                if (next != null) {
+                    ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
+                    Spacer(GlanceModifier.width(6.dp))
+                }
+                ActionButton("+", busy == BUSY_WATER, Water, busy == null, actionRunCallback<AddWaterAction>(), BUTTON_SMALL)
+            },
+        )
     }
 
     /** Two rows for a short, wide widget: the next meal with its tick, then water. */
     @Composable
     private fun Compact(day: WidgetSnapshot, waterMl: Int, busy: String?) {
         Column(GlanceModifier.fillMaxSize()) {
-            NextMeal(day, busy, GlanceModifier.defaultWeight())
+            NextMeal(day, busy, GlanceModifier.fillMaxWidth().defaultWeight(), card = false)
             Spacer(GlanceModifier.height(6.dp))
-            WaterRow(day, waterMl, busy)
+            WaterRow(day, waterMl, busy, slim = true)
         }
     }
 
-    /** A card: header with progress, next meal with its tick, the day as pills, water glasses with "+". */
+    /** A card: header, the next meal, the day as an even strip, water. */
     @Composable
     private fun Medium(day: WidgetSnapshot, waterMl: Int, busy: String?) {
         Column(GlanceModifier.fillMaxSize()) {
             Header(day)
-            Spacer(GlanceModifier.height(6.dp))
-            NextMeal(day, busy, GlanceModifier.defaultWeight())
-            Spacer(GlanceModifier.height(4.dp))
+            Spacer(GlanceModifier.height(GAP))
+            NextMeal(day, busy, GlanceModifier.fillMaxWidth().defaultWeight(), card = true)
+            Spacer(GlanceModifier.height(GAP))
             DayStrip(day)
-            Spacer(GlanceModifier.height(6.dp))
+            Spacer(GlanceModifier.height(GAP))
             WaterRow(day, waterMl, busy)
         }
     }
 
-    /** The whole day: header, every meal with its status, water glasses. */
+    /** The whole day: header, every meal with its status badge, water. */
     @Composable
     private fun Large(day: WidgetSnapshot, waterMl: Int, busy: String?) {
         val nextKey = day.meals.firstOrNull { it.status == "planned" }?.slotKey
         Column(GlanceModifier.fillMaxSize()) {
             Header(day)
-            Spacer(GlanceModifier.height(8.dp))
+            Spacer(GlanceModifier.height(GAP))
             Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
                 day.meals.forEach { meal ->
                     val isNext = meal.slotKey == nextKey
-                    val row = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)
                     // Each meal takes an equal share of the height, so a tall widget spreads out instead of leaving a gap.
-                    Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.CenterStart) {
-                    Row(
-                        (if (isNext) row.background(ColorProvider(SaffronSoft)).cornerRadius(12.dp) else row)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            when (meal.status) {
-                                "completed" -> "✅"
-                                "skipped" -> "⏭️"
-                                else -> "🍽️"
+                    Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.Center) {
+                        val row = GlanceModifier.fillMaxWidth().cornerRadius(INNER_RADIUS)
+                        RtlRow(
+                            (if (isNext) row.background(ColorProvider(SaffronSoft)) else row).padding(horizontal = 10.dp, vertical = 6.dp),
+                            // The next meal's badge is its tick button, in the same column as the other badges.
+                            start = {
+                                Box(GlanceModifier.size(BUTTON_SMALL), contentAlignment = Alignment.Center) {
+                                    if (isNext) {
+                                        ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
+                                    } else {
+                                        StatusBadge(meal.status)
+                                    }
+                                }
                             },
-                            style = TextStyle(fontSize = 13.sp),
+                            middle = {
+                                TextBlock(
+                                    GlanceModifier.defaultWeight(),
+                                    title = meal.option,
+                                    subtitle = "${meal.title}${meal.time?.let { " · ${it.fa()}" } ?: ""}",
+                                    titleColor = if (meal.status == "planned") Ink else Muted,
+                                    titleSize = 13,
+                                    bold = isNext,
+                                    subtitleSize = 10,
+                                )
+                            },
                         )
-                        Spacer(GlanceModifier.width(6.dp))
-                        Column(GlanceModifier.defaultWeight()) {
-                            Text(
-                                rtl(meal.option),
-                                maxLines = 1,
-                                style = TextStyle(
-                                    color = ColorProvider(if (meal.status == "planned") Ink else Muted),
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isNext) FontWeight.Bold else FontWeight.Normal,
-                                ),
-                            )
-                            Text(
-                                rtl("${meal.title}${meal.time?.let { " · ${it.fa()}" } ?: ""}"),
-                                maxLines = 1,
-                                style = TextStyle(color = ColorProvider(Muted), fontSize = 10.sp),
-                            )
-                        }
-                        if (isNext) ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), small = true)
-                    }
                     }
                 }
             }
-            Spacer(GlanceModifier.height(6.dp))
-            WaterRow(day, waterMl, busy)
+            Spacer(GlanceModifier.height(GAP))
+            WaterRow(day, waterMl, busy, button = BUTTON_SMALL)
         }
     }
 
-    /** The day's meals as a strip of pills (green eaten, grey skipped, saffron next), and what comes after. */
-    @Composable
-    private fun DayStrip(day: WidgetSnapshot) {
-        val planned = day.meals.filter { it.status == "planned" }
-        val after = planned.getOrNull(1)
-        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Row {
-                day.meals.take(8).forEach { meal ->
-                    val color = when {
-                        meal.status == "completed" -> Green
-                        meal.status == "skipped" -> Muted
-                        meal.slotKey == planned.firstOrNull()?.slotKey -> Saffron
-                        else -> SaffronSoft
-                    }
-                    Box(GlanceModifier.padding(end = 4.dp)) {
-                        Box(GlanceModifier.size(width = 18.dp, height = 6.dp).cornerRadius(3.dp).background(ColorProvider(color))) {}
-                    }
-                }
-            }
-            Spacer(GlanceModifier.defaultWeight())
-            if (after != null) {
-                Text(
-                    rtl("بعد: ${after.title}${after.time?.let { " ${it.fa()}" } ?: ""}"),
-                    maxLines = 1,
-                    style = TextStyle(color = ColorProvider(Muted), fontSize = 10.sp),
-                )
-            }
-        }
-    }
-
+    /** Brand on the right, today's progress as a pill on the left. */
     @Composable
     private fun Header(day: WidgetSnapshot) {
         val done = day.meals.count { it.status == "completed" }
-        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Momentum", style = TextStyle(color = ColorProvider(Saffron), fontSize = 13.sp, fontWeight = FontWeight.Bold))
-            Spacer(GlanceModifier.defaultWeight())
-            Text(rtl("${done.fa()} از ${day.meals.size.fa()} وعده"), style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
-        }
-    }
-
-    @Composable
-    private fun NextMeal(day: WidgetSnapshot, busy: String?, modifier: GlanceModifier) {
-        val next = day.meals.firstOrNull { it.status == "planned" }
-        Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(GlanceModifier.defaultWeight()) {
-                if (next == null) {
+        RtlRow(
+            GlanceModifier.fillMaxWidth(),
+            start = {
+                Text("Momentum", style = TextStyle(color = ColorProvider(Saffron), fontSize = 14.sp, fontWeight = FontWeight.Bold))
+            },
+            middle = { Spacer(GlanceModifier.defaultWeight()) },
+            end = {
+                Box(GlanceModifier.background(ColorProvider(SaffronSoft)).cornerRadius(10.dp).padding(horizontal = 9.dp, vertical = 3.dp)) {
                     Text(
-                        rtl("همه وعده‌های امروز ثبت شد 🎉"),
-                        maxLines = 2,
-                        style = TextStyle(color = ColorProvider(Green), fontSize = 14.sp, fontWeight = FontWeight.Bold),
-                    )
-                } else {
-                    Text(
-                        rtl("${next.title}${next.time?.let { " · ${it.fa()}" } ?: ""}"),
-                        maxLines = 1,
-                        style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp),
-                    )
-                    Text(
-                        rtl(next.option),
-                        maxLines = 1,
-                        style = TextStyle(color = ColorProvider(Ink), fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                        rtl("${done.fa()} از ${day.meals.size.fa()} وعده"),
+                        style = TextStyle(color = ColorProvider(Saffron), fontSize = 11.sp, fontWeight = FontWeight.Bold),
                     )
                 }
-            }
-            if (next != null) {
-                Spacer(GlanceModifier.width(8.dp))
-                ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>())
+            },
+        )
+    }
+
+    /** The next meal, large, with its tick; a saffron card in the medium design. */
+    @Composable
+    private fun NextMeal(day: WidgetSnapshot, busy: String?, modifier: GlanceModifier, card: Boolean) {
+        val next = day.meals.firstOrNull { it.status == "planned" }
+        val box = if (card) modifier.background(ColorProvider(SaffronSoft)).cornerRadius(INNER_RADIUS).padding(horizontal = 12.dp) else modifier
+        Box(box, contentAlignment = Alignment.Center) {
+            RtlRow(
+                GlanceModifier.fillMaxWidth(),
+                    middle = {
+                    if (next == null) {
+                        TextBlock(GlanceModifier.defaultWeight(), title = "همه وعده‌های امروز ثبت شد 🎉", subtitle = null, titleColor = Green, titleSize = 15)
+                    } else {
+                        TextBlock(
+                            GlanceModifier.defaultWeight(),
+                            title = next.option,
+                            subtitle = "${next.title}${next.time?.let { " · ${it.fa()}" } ?: ""}",
+                            titleColor = Ink,
+                            titleSize = 16,
+                            subtitleFirst = true,
+                        )
+                    }
+                },
+                end = if (next == null) null else {
+                    { ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON) }
+                },
+            )
+        }
+    }
+
+    /** The day's meals as equal segments across the width: green eaten, grey skipped, saffron next. */
+    @Composable
+    private fun DayStrip(day: WidgetSnapshot) {
+        val nextKey = day.meals.firstOrNull { it.status == "planned" }?.slotKey
+        val meals = day.meals.take(10).let { if (LocalRtlDevice.current) it else it.reversed() }
+        Row(GlanceModifier.fillMaxWidth()) {
+            meals.forEachIndexed { i, meal ->
+                val color = when {
+                    meal.status == "completed" -> Green
+                    meal.status == "skipped" -> SkippedTone
+                    meal.slotKey == nextKey -> Saffron
+                    else -> SaffronSoft
+                }
+                Box(GlanceModifier.defaultWeight().padding(start = if (i == 0) 0.dp else 3.dp, end = if (i == meals.lastIndex) 0.dp else 3.dp)) {
+                    Box(GlanceModifier.fillMaxWidth().height(6.dp).cornerRadius(3.dp).background(ColorProvider(color))) {}
+                }
             }
         }
     }
 
-    /** Water as little glasses filling toward the target, with "+" for one more. */
+    /**
+     * Water as glasses spread evenly across the width, filling from the right, with "+" for one more.
+     * The slim version puts the amount beside the glasses, on one line.
+     */
     @Composable
-    private fun WaterRow(day: WidgetSnapshot, waterMl: Int, busy: String?) {
+    private fun WaterRow(day: WidgetSnapshot, waterMl: Int, busy: String?, slim: Boolean = false, button: Dp = BUTTON) {
+        val done = waterMl >= day.waterTargetMl
+        val amount = if (done) "💧 ${litres(waterMl)} لیتر · کامل شد" else "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)} لیتر"
+        RtlRow(
+            GlanceModifier.fillMaxWidth().background(ColorProvider(WaterSoft)).cornerRadius(INNER_RADIUS)
+                .padding(horizontal = 10.dp, vertical = if (slim) 5.dp else 8.dp),
+            start = if (!slim) null else {
+                { Text(rtl(if (done) "💧 کامل شد" else "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)}"), maxLines = 1, style = waterText) }
+            },
+            middle = {
+                Column(GlanceModifier.defaultWeight()) {
+                    if (!slim) {
+                        Text(rtl(amount), maxLines = 1, modifier = GlanceModifier.fillMaxWidth(), style = waterText)
+                        Spacer(GlanceModifier.height(5.dp))
+                    }
+                    Glasses(day, waterMl)
+                }
+            },
+            end = { ActionButton("+", busy == BUSY_WATER, Water, busy == null, actionRunCallback<AddWaterAction>(), if (slim) 28.dp else button) },
+        )
+    }
+
+    @Composable
+    private fun Glasses(day: WidgetSnapshot, waterMl: Int) {
         val glasses = ((day.waterTargetMl + 249) / 250).coerceIn(4, 10)
         val full = (waterMl / 250).coerceAtMost(glasses)
-        Row(
-            GlanceModifier.fillMaxWidth().background(ColorProvider(WaterSoft)).cornerRadius(14.dp)
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(GlanceModifier.defaultWeight()) {
-                Text(
-                    rtl(if (waterMl >= day.waterTargetMl) "💧 ${litres(waterMl)} لیتر · کامل شد" else "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)} لیتر"),
-                    maxLines = 1,
-                    style = TextStyle(color = ColorProvider(Water), fontSize = 12.sp, fontWeight = FontWeight.Bold),
-                )
-                // One child per glass (Glance rows take at most 10 children), spacing inside each.
-                Row {
-                    repeat(glasses) { i ->
-                        Box(GlanceModifier.padding(end = 3.dp)) {
-                            Box(
-                                GlanceModifier.size(width = 8.dp, height = 11.dp).cornerRadius(2.dp)
-                                    .background(ColorProvider(if (i < full) Water else WaterEmpty)),
-                            ) {}
-                        }
-                    }
+        val rtlDevice = LocalRtlDevice.current
+        // One child per glass (Glance rows take at most 10 children), spacing inside each.
+        Row(GlanceModifier.fillMaxWidth()) {
+            repeat(glasses) { i ->
+                val filled = if (rtlDevice) i < full else glasses - 1 - i < full
+                Box(GlanceModifier.defaultWeight().padding(start = if (i == 0) 0.dp else 2.dp, end = if (i == glasses - 1) 0.dp else 2.dp)) {
+                    Box(
+                        GlanceModifier.fillMaxWidth().height(12.dp).cornerRadius(3.dp)
+                            .background(ColorProvider(if (filled) Water else WaterEmpty)),
+                    ) {}
                 }
             }
-            ActionButton("+", busy == BUSY_WATER, Water, busy == null, actionRunCallback<AddWaterAction>(), small = true)
+        }
+    }
+
+    /** Eaten ✓ on green, skipped – on grey, still to come • on pale saffron. */
+    @Composable
+    private fun StatusBadge(status: String) {
+        val (glyph, bg, fg) = when (status) {
+            "completed" -> Triple("✓", Green, Color.White)
+            "skipped" -> Triple("–", SkippedTone, Color.White)
+            else -> Triple("•", SaffronSoft, Saffron)
+        }
+        Box(GlanceModifier.size(BADGE).cornerRadius(BADGE / 2).background(ColorProvider(bg)), contentAlignment = Alignment.Center) {
+            Text(glyph, style = TextStyle(color = ColorProvider(fg), fontSize = 13.sp, fontWeight = FontWeight.Bold))
+        }
+    }
+
+    /** A title and a muted line, right-aligned whatever the phone's language. */
+    @Composable
+    private fun TextBlock(
+        modifier: GlanceModifier,
+        title: String,
+        subtitle: String?,
+        titleColor: Color,
+        titleSize: Int,
+        bold: Boolean = true,
+        subtitleFirst: Boolean = false,
+        subtitleSize: Int = 11,
+    ) {
+        Column(modifier) {
+            if (subtitleFirst && subtitle != null) Subtitle(subtitle, subtitleSize)
+            Text(
+                rtl(title),
+                maxLines = 1,
+                modifier = GlanceModifier.fillMaxWidth(),
+                style = TextStyle(
+                    color = ColorProvider(titleColor),
+                    fontSize = titleSize.sp,
+                    fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+                    textAlign = TextAlign.Right,
+                ),
+            )
+            if (!subtitleFirst && subtitle != null) Subtitle(subtitle, subtitleSize)
         }
     }
 
     @Composable
-    private fun ActionButton(label: String, busy: Boolean, color: Color, enabled: Boolean, action: Action, small: Boolean = false) {
-        val side = if (small) 30.dp else 40.dp
+    private fun Subtitle(text: String, size: Int) {
+        Text(
+            rtl(text),
+            maxLines = 1,
+            modifier = GlanceModifier.fillMaxWidth(),
+            style = TextStyle(color = ColorProvider(Muted), fontSize = size.sp, textAlign = TextAlign.Right),
+        )
+    }
+
+    /**
+     * A row laid out right-to-left on any phone: [start] on the right, [end] on the left. The launcher
+     * uses the phone's language, so on an English phone the children are placed in reverse. A gap is
+     * placed between the parts, so it always falls on the inner side.
+     */
+    @Composable
+    private fun RtlRow(
+        modifier: GlanceModifier,
+        start: (@Composable () -> Unit)? = null,
+        middle: @Composable RowScope.() -> Unit,
+        end: (@Composable () -> Unit)? = null,
+    ) {
+        val rtlDevice = LocalRtlDevice.current
+        val left = if (rtlDevice) start else end
+        val right = if (rtlDevice) end else start
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            if (left != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) { left() }
+                Spacer(GlanceModifier.width(GAP))
+            }
+            middle()
+            if (right != null) {
+                Spacer(GlanceModifier.width(GAP))
+                Row(verticalAlignment = Alignment.CenterVertically) { right() }
+            }
+        }
+    }
+
+    @Composable
+    private fun ActionButton(label: String, busy: Boolean, color: Color, enabled: Boolean, action: Action, side: Dp) {
         val base = GlanceModifier.size(side).background(ColorProvider(color)).cornerRadius(side / 2)
         Box(if (enabled) base.clickable(action) else base, contentAlignment = Alignment.Center) {
             if (busy) {
                 CircularProgressIndicator(GlanceModifier.size(side - 14.dp), color = ColorProvider(Color.White))
             } else {
-                Text(label, style = TextStyle(color = ColorProvider(Color.White), fontSize = if (small) 17.sp else 20.sp, fontWeight = FontWeight.Bold))
+                Text(label, style = TextStyle(color = ColorProvider(Color.White), fontSize = (side.value * 0.5f).sp, fontWeight = FontWeight.Bold))
             }
         }
     }
