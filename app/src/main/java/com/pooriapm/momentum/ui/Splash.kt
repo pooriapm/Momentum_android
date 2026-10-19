@@ -2,6 +2,7 @@ package com.pooriapm.momentum.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -43,7 +44,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pooriapm.momentum.ui.theme.Glow
 import com.pooriapm.momentum.ui.theme.LocalGlow
+import com.pooriapm.momentum.ui.theme.hueBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -90,40 +93,12 @@ fun BrandSplash(modifier: Modifier = Modifier) {
     }
 
     val ambient = rememberInfiniteTransition(label = "ambient")
-    val drift by ambient.animateFloat(0f, 1f, infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse), label = "drift")
-    val rise by ambient.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "rise")
     val pulse by ambient.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "pulse")
     val orbit by ambient.animateFloat(0f, 360f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "orbit")
 
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        // Background: drifting hue blobs and rising glass bubbles.
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            drawRect(glow.base)
-            fun blob(color: Color, x: Float, y: Float, r: Float) {
-                val c = Offset(w * x, h * y)
-                drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), c, w * r), w * r, c)
-            }
-            blob(glow.accent, 0.85f - 0.15f * drift, 0.08f + 0.06f * drift, 1.0f)
-            blob(glow.rose, 0.05f + 0.12f * drift, 0.45f - 0.05f * drift, 0.8f)
-            blob(glow.amber, 0.95f - 0.1f * drift, 0.72f + 0.05f * drift, 0.7f)
-            blob(glow.highlight, 0.2f + 0.1f * drift, 0.98f - 0.04f * drift, 0.9f)
-            Bubbles.forEach { (x, sizeDp, speed, phase) ->
-                val t = ((rise * speed + phase) % 1f)
-                val r = sizeDp.dp.toPx() / 2
-                val center = Offset(w * x + sin((t + phase) * 2 * PI.toFloat()) * 18.dp.toPx(), h * (1.1f - t * 1.2f))
-                val fade = sin(t * PI.toFloat()) * tagline.value.coerceAtLeast(disc.value * 0.6f)
-                drawCircle(
-                    Brush.radialGradient(
-                        listOf(Color.White.copy(alpha = 0.55f * fade), Ember.copy(alpha = 0.10f * fade), Color.Transparent),
-                        center = center - Offset(r * 0.3f, r * 0.3f), radius = r * 1.3f,
-                    ),
-                    r, center,
-                )
-                drawCircle(Color.White.copy(alpha = 0.35f * fade), r, center, style = Stroke(1.dp.toPx()))
-            }
-        }
+        // Lite: a still background. The moving one redraws the whole screen every frame.
+        if (LocalPerf.current.lite) Box(Modifier.fillMaxSize().hueBackground(glow)) else AmbientBackground(glow, ambient, tagline.value, disc.value)
 
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Canvas(Modifier.size(220.dp)) { drawLogo(disc.value, ring.value, dot.value, mark.value, pulse, if (tagline.value >= 1f) orbit else 0f) }
@@ -156,12 +131,50 @@ fun BrandSplash(modifier: Modifier = Modifier) {
     }
 }
 
+/** Drifting hue blobs and rising glass bubbles behind the intro. */
+@Composable
+private fun AmbientBackground(glow: Glow, ambient: InfiniteTransition, tagline: Float, disc: Float) {
+    val drift by ambient.animateFloat(0f, 1f, infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse), label = "drift")
+    val rise by ambient.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "rise")
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        drawRect(glow.base)
+        fun blob(color: Color, x: Float, y: Float, r: Float) {
+            val c = Offset(w * x, h * y)
+            drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), c, w * r), w * r, c)
+        }
+        blob(glow.accent, 0.85f - 0.15f * drift, 0.08f + 0.06f * drift, 1.0f)
+        blob(glow.rose, 0.05f + 0.12f * drift, 0.45f - 0.05f * drift, 0.8f)
+        blob(glow.amber, 0.95f - 0.1f * drift, 0.72f + 0.05f * drift, 0.7f)
+        blob(glow.highlight, 0.2f + 0.1f * drift, 0.98f - 0.04f * drift, 0.9f)
+        Bubbles.forEach { (x, sizeDp, speed, phase) ->
+            val t = ((rise * speed + phase) % 1f)
+            val r = sizeDp.dp.toPx() / 2
+            val center = Offset(w * x + sin((t + phase) * 2 * PI.toFloat()) * 18.dp.toPx(), h * (1.1f - t * 1.2f))
+            val fade = sin(t * PI.toFloat()) * tagline.coerceAtLeast(disc * 0.6f)
+            drawCircle(
+                Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = 0.55f * fade), Ember.copy(alpha = 0.10f * fade), Color.Transparent),
+                    center = center - Offset(r * 0.3f, r * 0.3f), radius = r * 1.3f,
+                ),
+                r, center,
+            )
+            drawCircle(Color.White.copy(alpha = 0.35f * fade), r, center, style = Stroke(1.dp.toPx()))
+        }
+    }
+}
+
 /**
  * The logo at rest, alive: the ember ring slowly orbits the M (one turn every 14 s) and its dot
  * breathes, forever. Quiet enough to sit above a form.
  */
 @Composable
 fun LiveLogo(modifier: Modifier = Modifier) {
+    if (LocalPerf.current.reduceMotion) {
+        Canvas(modifier) { drawLogo(disc = 1f, ring = 1f, dot = 1f, mark = 1f, pulse = 0.5f, orbit = 0f, rings = false) }
+        return
+    }
     val motion = rememberInfiniteTransition(label = "live-logo")
     val orbit by motion.animateFloat(0f, 360f, infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "orbit")
     val breath by motion.animateFloat(0.82f, 1.12f, infiniteRepeatable(tween(1_600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dot")

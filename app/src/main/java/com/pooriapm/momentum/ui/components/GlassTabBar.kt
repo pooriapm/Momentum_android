@@ -5,6 +5,14 @@ package com.pooriapm.momentum.ui.components
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import com.pooriapm.momentum.ui.LocalPerf
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -40,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -131,6 +140,11 @@ fun LiquidSelector(
     role: Role = Role.Tab,
     item: @Composable ColumnScope.(index: Int) -> Unit,
 ) {
+    // Weak phones: the same control without glass, which costs three recorded layers and a blur every frame.
+    if (LocalPerf.current.lite) {
+        FlatSelector(count, selected, onSelect, modifier, height, role, item)
+        return
+    }
     val dark = isSystemInDarkTheme()
     val accent = MaterialTheme.colorScheme.primary
     val glass = when {
@@ -321,6 +335,58 @@ fun LiquidSelector(
                 .height(lensHeight)
                 .fillMaxWidth(1f / count),
         )
+    }
+}
+
+/** Lite mode's selector: a solid capsule with a sliding pill under the selected option. */
+@Composable
+private fun FlatSelector(
+    count: Int,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier,
+    height: Dp,
+    role: Role,
+    item: @Composable ColumnScope.(index: Int) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val reduceMotion = LocalPerf.current.reduceMotion
+    val position by animateFloatAsState(
+        selected.toFloat(),
+        if (reduceMotion) snap() else spring(dampingRatio = 0.8f, stiffness = 500f),
+        label = "flat-selector",
+    )
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+            .shadow(6.dp, Capsule(), clip = false)
+            .clip(Capsule())
+            .background(colors.surface)
+            .border(1.dp, colors.outlineVariant, Capsule())
+            .padding(4.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        val slot = maxWidth / count
+        // offset follows the layout direction, so in RTL the pill moves leftwards as the index grows.
+        Box(
+            Modifier
+                .offset { IntOffset((slot.toPx() * position).fastRoundToInt(), 0) }
+                .size(slot, maxHeight)
+                .clip(Capsule())
+                .background(colors.primary.copy(alpha = 0.14f)),
+        )
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            repeat(count) { index ->
+                LiquidItem(index == selected, role, {
+                    if (index != selected) {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onSelect(index)
+                    }
+                }) { item(index) }
+            }
+        }
     }
 }
 

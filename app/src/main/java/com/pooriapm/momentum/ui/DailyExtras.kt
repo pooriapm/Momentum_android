@@ -148,8 +148,9 @@ fun AnimatedFlame(lit: Boolean, modifier: Modifier = Modifier, key: Any? = null)
     // A few flickers, then still: an endless animation would redraw the whole screen (and the
     // glass tab bar behind it) every frame, for nothing.
     val tAnim = remember { Animatable(0f) }
+    val still = LocalPerf.current.reduceMotion
     LaunchedEffect(lit, key) {
-        if (lit) {
+        if (lit && !still) {
             tAnim.snapTo(0f)
             tAnim.animateTo(3f, tween(4200, easing = LinearEasing))
         }
@@ -242,7 +243,8 @@ fun WaterCard(state: AppState, targetMl: Int) {
                 }
             }
         }
-        if (party > 0) Celebration(party, Modifier.matchParentSize())
+        // Lite: the badge alone; the sparks and confetti are many shapes redrawn every frame.
+        if (party > 0 && !LocalPerf.current.reduceMotion) Celebration(party, Modifier.matchParentSize())
         if (party > 0) CongratsBadge(party, Modifier.align(Alignment.Center))
       }
     }
@@ -340,9 +342,14 @@ private fun WaterGlass(filled: Boolean, modifier: Modifier) {
     val level by animateFloatAsState(if (filled) 0.86f else 0f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow), label = "level")
     // The wave sloshes for a moment after the glass changes, then the water is still.
     val waveAnim = remember { Animatable(0f) }
+    val still = LocalPerf.current.reduceMotion
     LaunchedEffect(filled) {
-        waveAnim.snapTo(0f)
-        if (filled) waveAnim.animateTo(2f, tween(2200, easing = LinearEasing))
+        // Lite: the water settles at once.
+        if (still) waveAnim.snapTo(2f)
+        else {
+            waveAnim.snapTo(0f)
+            if (filled) waveAnim.animateTo(2f, tween(2200, easing = LinearEasing))
+        }
     }
     val wave = waveAnim.value % 1f
     val slosh = (1f - waveAnim.value / 2f).coerceIn(0.15f, 1f)
@@ -406,8 +413,9 @@ fun EatingOutSheet(tips: List<RestaurantTip>, onDismiss: () -> Unit) {
                 }
             }
             list.forEachIndexed { i, tip ->
-                val appear = remember { Animatable(0f) }
-                LaunchedEffect(Unit) { appear.animateTo(1f, tween(320, delayMillis = 80 * i, easing = FastOutSlowInEasing)) }
+                val still = LocalPerf.current.reduceMotion
+                val appear = remember { Animatable(if (still) 1f else 0f) }
+                LaunchedEffect(Unit) { if (!still) appear.animateTo(1f, tween(320, delayMillis = 80 * i, easing = FastOutSlowInEasing)) }
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
                     modifier = Modifier.fillMaxWidth().scale(0.94f + 0.06f * appear.value),
@@ -432,8 +440,9 @@ fun EatingOutSheet(tips: List<RestaurantTip>, onDismiss: () -> Unit) {
 @Composable
 fun BouncingPlate(modifier: Modifier = Modifier) {
     val bobAnim = remember { Animatable(0f) }
+    val still = LocalPerf.current.reduceMotion
     LaunchedEffect(Unit) {
-        repeat(3) {
+        if (!still) repeat(3) {
             bobAnim.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
             bobAnim.animateTo(0f, tween(450, easing = FastOutSlowInEasing))
         }
@@ -473,8 +482,9 @@ fun WeightChart(checkins: List<Checkin>, targetKg: Double?, today: String, modif
         if (d.isBefore(start) || d.isAfter(end)) null else (d.toEpochDay() - start.toEpochDay()).toFloat() to w.toFloat()
     }.sortedBy { it.first }
     if (points.isEmpty()) return
-    val draw = remember(points) { Animatable(0f) }
-    LaunchedEffect(points) { draw.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
+    val still = LocalPerf.current.reduceMotion
+    val draw = remember(points) { Animatable(if (still) 1f else 0f) }
+    LaunchedEffect(points) { if (!still) draw.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val line = MaterialTheme.colorScheme.primary
     val target = MaterialTheme.colorScheme.tertiary

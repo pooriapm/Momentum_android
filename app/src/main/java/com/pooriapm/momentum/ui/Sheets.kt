@@ -33,7 +33,6 @@ import com.pooriapm.momentum.ui.components.LiquidSelector
 import com.pooriapm.momentum.ui.theme.LocalGlow
 import com.pooriapm.momentum.ui.theme.hueBackground
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Alignment
@@ -129,7 +128,7 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
         dragHandle = null,
     ) {
         Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            Box(Modifier.matchParentSize().layerBackdrop(backdrop).hueBackground(glow))
+            Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),

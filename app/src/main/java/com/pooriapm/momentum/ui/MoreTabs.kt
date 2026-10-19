@@ -1,6 +1,13 @@
 package com.pooriapm.momentum.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -188,6 +195,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
                 }
             }
         }
+        item { SettingsGroup { LiteModeRow(state) } }
         item { ReminderSettingsCard(state) }
         item {
             SettingsGroup {
@@ -323,6 +331,70 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth(),
     ) { Column(content = content) }
+}
+
+/** Lite mode: automatic (weak phone or battery saver), always on, or off. */
+@Composable
+private fun LiteModeRow(state: AppState) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val active = LocalPerf.current.lite
+    val summary = when (state.liteSetting) {
+        LiteSetting.Auto -> if (active) "خودکار · الان روشن است" else "خودکار · الان خاموش است"
+        LiteSetting.On -> "همیشه روشن"
+        LiteSetting.Off -> "خاموش"
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(role = Role.Button) { open = true }.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Text("حالت سبک", style = MaterialTheme.typography.bodyLarge)
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(
+            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+    if (open) {
+        val options = listOf(
+            LiteSetting.Auto to "خودکار",
+            LiteSetting.On to "همیشه روشن",
+            LiteSetting.Off to "خاموش",
+        )
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text("حالت سبک") },
+            text = {
+                Column {
+                    Text(
+                        "جلوه‌های شیشه‌ای و انیمیشن‌های تزئینی کم می‌شود تا برنامه روان‌تر باشد و باتری کمتری مصرف کند. در حالت خودکار، روی گوشی‌های کم‌توان و هنگام صرفه‌جویی باتری خودش روشن می‌شود.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    options.forEach { (value, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .selectable(state.liteSetting == value, role = Role.RadioButton) {
+                                    state.changeLiteSetting(value)
+                                    open = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = state.liteSetting == value, onClick = null)
+                            Spacer(Modifier.width(10.dp))
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text("بستن") } },
+        )
+    }
 }
 
 @Composable

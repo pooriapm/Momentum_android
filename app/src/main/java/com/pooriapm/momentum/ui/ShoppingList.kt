@@ -60,7 +60,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.pooriapm.momentum.data.Plan
 import com.pooriapm.momentum.ui.components.LiquidSelector
@@ -138,7 +137,7 @@ private fun ShoppingSheet(state: AppState, plan: Plan, today: String, onDismiss:
         dragHandle = null,
     ) {
         Box(Modifier.fillMaxWidth()) {
-            Box(Modifier.matchParentSize().layerBackdrop(backdrop).hueBackground(glow))
+            Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
             Column(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }

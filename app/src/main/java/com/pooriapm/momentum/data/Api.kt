@@ -35,6 +35,20 @@ val json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefault
 data class OnboardingDraft(val step: String, val values: Map<String, String>)
 
 /**
+ * One HTTP client for the whole process: the app and every widget tap share its connections and
+ * threads instead of each opening their own.
+ */
+private val sharedHttp: OkHttpClient by lazy {
+    OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false) // retries are decided below, per request kind
+        .build()
+}
+
+/**
  * Talks to the same Supabase project as the website: GoTrue for sign-in, PostgREST for the
  * onboarding draft (row-level security keeps it per user) and the Edge Functions for the rest.
  *
@@ -47,13 +61,7 @@ data class OnboardingDraft(val step: String, val values: Map<String, String>)
  */
 class Api(context: Context) {
     private val store = SessionStore(context)
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false) // retries are decided below, per request kind
-        .build()
+    private val http = sharedHttp
     private val base = BuildConfig.SUPABASE_URL.trimEnd('/')
     private val jsonType = "application/json; charset=utf-8".toMediaType()
     private val refreshLock = Mutex()

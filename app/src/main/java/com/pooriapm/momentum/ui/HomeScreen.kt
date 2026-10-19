@@ -1,6 +1,8 @@
 package com.pooriapm.momentum.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +24,6 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Person
-import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.pooriapm.momentum.ui.theme.LocalGlow
 import com.pooriapm.momentum.ui.theme.hueBackground
@@ -90,7 +91,7 @@ fun HomeScreen(state: AppState, billing: BazaarBilling) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().layerBackdrop(backdrop).hueBackground(LocalGlow.current)) {
+        Box(Modifier.fillMaxSize().glassSource(backdrop).hueBackground(LocalGlow.current)) {
         Scaffold(
             // Edge to edge: content scrolls under the gesture bar; only the top inset is padded.
             modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
@@ -107,10 +108,13 @@ fun HomeScreen(state: AppState, billing: BazaarBilling) {
                 onRefresh = state::refresh,
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
+                val reduceMotion = LocalPerf.current.reduceMotion
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
-                        (fadeIn(tween(240, delayMillis = 40)) + scaleIn(tween(240, delayMillis = 40), initialScale = 0.985f))
+                        // Lite: the new tab appears at once, so a weak phone never draws two tabs together.
+                        if (reduceMotion) EnterTransition.None.togetherWith(ExitTransition.None)
+                        else (fadeIn(tween(240, delayMillis = 40)) + scaleIn(tween(240, delayMillis = 40), initialScale = 0.985f))
                             .togetherWith(fadeOut(tween(120)))
                     },
                     label = "tab",

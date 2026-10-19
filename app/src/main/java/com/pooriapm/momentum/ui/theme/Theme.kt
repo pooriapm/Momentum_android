@@ -93,7 +93,15 @@ private val Dark = darkColorScheme(
 
 /** Colors of the soft background glows ("hue") behind the app. */
 @Immutable
-data class Glow(val base: Color, val accent: Color, val highlight: Color, val rose: Color, val amber: Color)
+data class Glow(
+    val base: Color,
+    val accent: Color,
+    val highlight: Color,
+    val rose: Color,
+    val amber: Color,
+    /** Lite mode: the base color only, without the hue blobs. */
+    val flat: Boolean = false,
+)
 
 private val LightGlow = Glow(Color(0xFFF6F4F0), Color(0x4DE0901F), Color(0x3DD9592A), Color(0x33E06A8C), Color(0x2EF2B33D))
 private val DarkGlow = Glow(Color(0xFF1D1B18), Color(0x40F0A93B), Color(0x33FF8A5C), Color(0x2EE0708F), Color(0x26F2B33D))
@@ -112,11 +120,11 @@ val MomentumShapes = Shapes(
  * website's "system appearance".
  */
 @Composable
-fun MomentumTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun MomentumTheme(dark: Boolean = isSystemInDarkTheme(), lite: Boolean = false, content: @Composable () -> Unit) {
     val scheme: ColorScheme = if (dark) Dark else Light
     CompositionLocalProvider(
         LocalLayoutDirection provides LayoutDirection.Rtl,
-        LocalGlow provides if (dark) DarkGlow else LightGlow,
+        LocalGlow provides (if (dark) DarkGlow else LightGlow).copy(flat = lite),
     ) {
         MaterialTheme(colorScheme = scheme, typography = MomentumTypography, shapes = MomentumShapes, content = content)
     }
@@ -126,7 +134,7 @@ fun MomentumTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable ()
  * Soft, Apple-wallpaper-like hue: large blurred blobs of saffron, ember, rose and amber over the
  * warm base. Gives the glass tab bar something to refract without adding visual noise to cards.
  */
-fun Modifier.hueBackground(glow: Glow): Modifier = background(glow.base).drawBehind {
+fun Modifier.hueBackground(glow: Glow): Modifier = if (glow.flat) background(glow.base) else background(glow.base).drawBehind {
     val w = size.width
     val h = size.height
     fun blob(color: Color, x: Float, y: Float, r: Float) {

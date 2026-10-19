@@ -234,6 +234,15 @@ class AppState(
         }
     }
 
+    /** Lite mode as the user set it in the Me tab; [DevicePerf] turns it into what the phone does. */
+    var liteSetting by mutableStateOf(local?.let(DevicePerf::setting) ?: LiteSetting.Auto)
+        private set
+
+    fun changeLiteSetting(value: LiteSetting) {
+        liteSetting = value
+        local?.let { DevicePerf.save(it, value) }
+    }
+
     /** App back in the foreground: keep the session warm and reload data older than 5 minutes. */
     fun onForeground() {
         if (api.session == null) return
