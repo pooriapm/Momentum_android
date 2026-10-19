@@ -132,6 +132,8 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
     var skipping by remember { mutableStateOf<WorkoutExerciseLog?>(null) }
     var stopping by rememberSaveable { mutableStateOf(false) }
     var painOpen by rememberSaveable { mutableStateOf(false) }
+    var guide by remember { mutableStateOf<WorkoutExerciseLog?>(null) }
+    val index = rememberExerciseIndex()
     val done = session.exercises.count { it.status == "completed" || it.status == "skipped" }
 
     // An exercise whose sets are all ticked is closed on the server, so "finish" can be enabled.
@@ -169,6 +171,8 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
             items(session.exercises, key = { it.id }) { exercise ->
                 ExerciseCard(
                     exercise = exercise,
+                    anim = index?.find(exercise.substituteExerciseId ?: exercise.exerciseKey, exercise.substituteName ?: exercise.plannedName)?.anim,
+                    onGuide = { guide = exercise },
                     busy = state.workoutBusy,
                     onSet = { number, complete ->
                         state.workoutStep("update_set", exercise.exerciseKey, number, buildJsonObject { put("completed", complete) })
@@ -197,6 +201,17 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
             ) { Text(if (session.canFinish) "پایان تمرین" else "حرکت‌ها را انجام بده یا رد کن") }
             TextButton(onClick = { stopping = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("توقف تمرین") }
         }
+    }
+    guide?.let { e ->
+        ExerciseSheet(
+            ExercisePlanInfo(
+                name = e.substituteName ?: e.plannedName,
+                exerciseKey = e.substituteExerciseId ?: e.exerciseKey,
+                sets = e.plannedSets,
+                reps = e.plannedReps,
+                restSeconds = e.plannedRestSeconds,
+            ),
+        ) { guide = null }
     }
 
     skipping?.let { exercise ->
@@ -258,6 +273,8 @@ private fun RestTimer(endsAt: Long, total: Int, onDone: () -> Unit) {
 @Composable
 private fun ExerciseCard(
     exercise: WorkoutExerciseLog,
+    anim: String?,
+    onGuide: () -> Unit,
     busy: Boolean,
     onSet: (Int, Boolean) -> Unit,
     onSwap: () -> Unit,
@@ -272,6 +289,8 @@ private fun ExerciseCard(
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                ExerciseAnimation(anim, Modifier.size(56.dp).clickable(role = Role.Button, onClick = onGuide))
+                Spacer(Modifier.width(12.dp))
                 Text(
                     "${(exercise.position + 1).fa()}. ${exercise.substituteName ?: exercise.plannedName}",
                     style = MaterialTheme.typography.titleMedium,
@@ -280,6 +299,7 @@ private fun ExerciseCard(
                     modifier = Modifier.weight(1f),
                 )
                 if (completed) Icon(Icons.Rounded.Check, contentDescription = "انجام شد", tint = colors.tertiary)
+                TextButton(onClick = onGuide) { Text("راهنما") }
             }
             Text(
                 "${exercise.plannedSets.fa()} ست × ${rangeLabel(exercise.plannedReps)} · ${exercise.plannedRestSeconds.fa()} ثانیه استراحت" +

@@ -12,3 +12,8 @@ supabaseAnonKey=YOUR_PUBLIC_ANON_KEY
 bazaarRsaKey=YOUR_BAZAAR_RSA_PUBLIC_KEY
 # Must equal BAZAAR_PRODUCT_ID on the server (consumable, 490,000 toman).
 bazaarProductId=membership_month
+
+# Optional, debug builds only: serve exercise animations and the library from a local server
+# (default: <supabaseUrl>/storage/v1/object/public/exercise-media/v1/), e.g. on the emulator:
+# python -m http.server 8765 --directory media, then http://10.0.2.2:8765/exercise/v1/
+exerciseMediaUrl=

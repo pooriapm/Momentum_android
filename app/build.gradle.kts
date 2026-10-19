@@ -37,9 +37,15 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", momentumValue("supabaseAnonKey"))
         buildConfigField("String", "BAZAAR_RSA_KEY", momentumValue("bazaarRsaKey"))
         buildConfigField("String", "BAZAAR_PRODUCT_ID", momentumValue("bazaarProductId"))
+        // Where exercise animations and the library are served: Supabase storage, unless a debug
+        // build points at a local test server (exerciseMediaUrl in momentum.properties).
+        buildConfigField("String", "EXERCISE_MEDIA_URL", "\"\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "EXERCISE_MEDIA_URL", momentumValue("exerciseMediaUrl"))
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -87,6 +93,8 @@ dependencies {
     // Installs the startup profile (ours and Compose's) so the code is compiled ahead of time.
     // Google Play does this from the cloud; Bazaar does not, so without it every install runs slow at first.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    // Exercise animations (small Lottie zips downloaded per exercise from the server).
+    implementation("com.airbnb.android:lottie-compose:6.7.1")
     // Home-screen widget (next meal + one-tap tick).
     implementation("androidx.glance:glance-appwidget:1.2.0")
 

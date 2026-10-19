@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.outlined.DoNotDisturbOn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,6 +62,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.data.Meal
+import com.pooriapm.momentum.data.Exercise
 import com.pooriapm.momentum.data.Workout
 import com.pooriapm.momentum.ui.components.InfoCard
 
@@ -102,6 +105,10 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
             }
         }
         item { WaterCard(state, (day.targets.waterMl ?: 2200.0).toInt()) }
+        // The workout has its own section above the meals, so it is not lost at the end of the list.
+        item { Text("تمرین امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
+        day.workout?.let { workout -> item { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } }
+            ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
         item { PlanEndingCard(state, dashboard) { prefsOpen = true } }
         item { CheckinCard(dashboard.checkin != null) { checkinOpen = true } }
         item {
@@ -119,8 +126,6 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
             }
         }
         items(day.meals, key = { it.slotKey }) { meal -> MealCard(state, meal, day.localDate) { openMeal = meal } }
-        day.workout?.let { workout -> item { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } }
-            ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
     }
 
     openMeal?.let { meal ->
@@ -301,41 +306,74 @@ private fun OptionStrip(meal: Meal, selectable: Boolean, onSelect: (String) -> U
 
 @Composable
 fun WorkoutCard(workout: Workout, footer: (@Composable () -> Unit)? = null) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().animateContentSize().clickable(role = Role.Button) { expanded = !expanded },
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val index = rememberExerciseIndex()
+    var guide by remember { mutableStateOf<Exercise?>(null) }
+    val colors = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = colors.surface), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                Spacer(Modifier.width(10.dp))
-                Text("تمرین امروز", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(workout.title, style = MaterialTheme.typography.titleLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = {}, label = { Text("${workout.durationMinutes.fa()} دقیقه") })
-                AssistChip(onClick = {}, label = { Text("${workout.exercises.size.fa()} حرکت") })
-                AssistChip(onClick = {}, label = { Text(intensityLabel(workout.intensity)) })
-            }
-            if (expanded) {
-                if (workout.warmup.isNotEmpty()) Text("گرم کردن: ${workout.warmup.joinToString("، ")}", style = MaterialTheme.typography.bodyMedium)
-                workout.exercises.forEachIndexed { index, e ->
-                    Column {
-                        Text("${(index + 1).fa()}. ${e.name}", style = MaterialTheme.typography.titleMedium)
-                        Text("${e.sets.fa()} ست × ${rangeLabel(e.reps)} · ${e.restSeconds.fa()} ثانیه استراحت" +
-                            (e.equipment.takeIf { it.isNotEmpty() }?.let { list -> " · ${list.joinToString("، ") { equipmentLabel(it) }}" } ?: ""),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        e.substitution?.let { Text("جایگزین: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
-                    }
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).background(colors.secondaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.FitnessCenter, contentDescription = null, tint = colors.secondary)
                 }
-                if (workout.cooldown.isNotEmpty()) Text("سرد کردن: ${workout.cooldown.joinToString("، ")}", style = MaterialTheme.typography.bodyMedium)
-                workout.safetyNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            } else if (footer == null) {
-                Text("برای دیدن حرکت‌ها بزن", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(workout.title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${workout.durationMinutes.fa()} دقیقه · ${workout.exercises.size.fa()} حرکت · ${intensityLabel(workout.intensity)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
+            if (workout.warmup.isNotEmpty()) WorkoutNote("گرم کردن", workout.warmup)
+            workout.exercises.forEachIndexed { i, exercise ->
+                ExerciseRow(i, exercise, index?.find(exercise.exerciseKey, exercise.name)?.anim) { guide = exercise }
+            }
+            if (workout.cooldown.isNotEmpty()) WorkoutNote("سرد کردن", workout.cooldown)
+            workout.safetyNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
             footer?.invoke()
         }
+    }
+    guide?.let { e ->
+        ExerciseSheet(
+            ExercisePlanInfo(e.name, e.exerciseKey, e.sets, e.reps, e.restSeconds, e.equipment, e.intensityNote, e.substitution),
+        ) { guide = null }
+    }
+}
+
+/** One exercise in the card: its still animation, name and numbers; tap for the full guide. */
+@Composable
+private fun ExerciseRow(position: Int, exercise: Exercise, anim: String?, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button, onClick = onOpen).padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ExerciseAnimation(anim, Modifier.size(60.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("${(position + 1).fa()}. ${exercise.name}", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "${exercise.sets.fa()} ست × ${rangeLabel(exercise.reps)} · ${exercise.restSeconds.fa()} ثانیه استراحت",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+            )
+        }
+        Text("راهنما", style = MaterialTheme.typography.labelLarge, color = colors.primary, modifier = Modifier.padding(horizontal = 8.dp))
+    }
+}
+
+@Composable
+private fun WorkoutNote(title: String, items: List<String>) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+        Text(items.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
     }
 }
 

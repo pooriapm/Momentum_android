@@ -38,7 +38,7 @@ data class OnboardingDraft(val step: String, val values: Map<String, String>)
  * One HTTP client for the whole process: the app and every widget tap share its connections and
  * threads instead of each opening their own.
  */
-private val sharedHttp: OkHttpClient by lazy {
+internal val sharedHttp: OkHttpClient by lazy {
     OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
