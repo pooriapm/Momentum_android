@@ -46,6 +46,8 @@ class AppState(
     private val onPlanChanged: ((Dashboard?, Boolean) -> Unit)? = null,
     /** Small on-device store (water until the server has it, widget snapshot). */
     private val local: android.content.SharedPreferences? = null,
+    /** Today's water changed in the app (the widget shows it too). */
+    private val onWaterChanged: ((Int) -> Unit)? = null,
 ) : ViewModel() {
     var screen by mutableStateOf<Screen>(if (api.session != null) Screen.Loading else Screen.SignIn)
         private set
@@ -95,6 +97,7 @@ class AppState(
         val date = dashboard?.localDate ?: return
         waterMl = (waterMl + glasses * 250).coerceIn(0, 6000)
         local?.edit()?.putInt("water:$date", waterMl)?.apply()
+        onWaterChanged?.invoke(waterMl)
         waterSync?.cancel()
         waterSync = scope.launch {
             delay(1500)

@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         MomentumWidget.saveSnapshot(applicationContext, dashboard)
                     },
                     local = applicationContext.getSharedPreferences("momentum.local", MODE_PRIVATE),
+                    onWaterChanged = { MomentumWidget.saveWater(applicationContext, it) },
                 ) as T
         }
     }

@@ -48,6 +48,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -191,7 +194,19 @@ fun WaterCard(state: AppState, targetMl: Int) {
     val glasses = ceil(targetMl / 250.0).toInt().coerceIn(4, 12)
     val drunk = state.waterMl
     val full = drunk / 250
+    // Celebrate only the moment the last glass fills here, not a target already met on load.
+    val reached = full >= glasses
+    var wasReached by remember { mutableStateOf(reached) }
+    var party by remember { mutableIntStateOf(0) }
+    LaunchedEffect(reached) {
+        if (reached && !wasReached) {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            party++
+        }
+        wasReached = reached
+    }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+      Box {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -227,7 +242,80 @@ fun WaterCard(state: AppState, targetMl: Int) {
                 }
             }
         }
+        if (party > 0) Celebration(party, Modifier.matchParentSize())
+        if (party > 0) CongratsBadge(party, Modifier.align(Alignment.Center))
+      }
     }
+}
+
+/**
+ * Fireworks and confetti over the card for ~2 s: three bursts of sparks that fly out, fall with
+ * gravity and fade, plus confetti drifting down. Plays once per [key], then draws nothing.
+ */
+@Composable
+private fun Celebration(key: Int, modifier: Modifier) {
+    val t = remember(key) { Animatable(0f) }
+    LaunchedEffect(key) { t.animateTo(1f, tween(2200, easing = LinearEasing)) }
+    val colors = listOf(WaterBlue, Flame, FlameCore, Color(0xFF4CC38A), Color(0xFFE0708F), WaterLight)
+    val bursts = remember(key) {
+        val r = kotlin.random.Random(key)
+        List(3) { b -> Triple(0.2f + r.nextFloat() * 0.6f, 0.25f + r.nextFloat() * 0.35f, b * 0.18f) }
+    }
+    val confetti = remember(key) {
+        val r = kotlin.random.Random(key * 31)
+        List(26) { floatArrayOf(r.nextFloat(), r.nextFloat() * 0.3f, 0.5f + r.nextFloat(), r.nextFloat() * 6.28f, r.nextInt(6).toFloat()) }
+    }
+    Canvas(modifier) {
+        val p = t.value
+        if (p >= 1f) return@Canvas
+        val w = size.width
+        val h = size.height
+        bursts.forEachIndexed { b, (bx, by, delay) ->
+            val local = ((p - delay) / 0.75f).coerceIn(0f, 1f)
+            if (local <= 0f) return@forEachIndexed
+            val alpha = (1f - local).coerceIn(0f, 1f)
+            val center = Offset(w * bx, h * by)
+            repeat(14) { i ->
+                val angle = i / 14f * 2 * PI.toFloat() + b
+                val dist = w * 0.22f * kotlin.math.sqrt(local)
+                val fall = h * 0.35f * local * local
+                val pos = center + Offset(kotlin.math.cos(angle) * dist, kotlin.math.sin(angle) * dist + fall)
+                val c = colors[(i + b) % colors.size]
+                drawCircle(c.copy(alpha = alpha), radius = (3.2f * (1f - local * 0.5f)).dp.toPx(), center = pos)
+                drawCircle(c.copy(alpha = alpha * 0.35f), radius = 7.dp.toPx() * (1f - local), center = pos)
+            }
+        }
+        confetti.forEach { (cx, cy, speed, spin, ci) ->
+            val y = (cy + p * speed) * h
+            if (y > h) return@forEach
+            val x = cx * w + sin(spin + p * 9f) * 10.dp.toPx()
+            val a = (1f - p).coerceIn(0f, 1f)
+            val sz = 6.dp.toPx()
+            drawRect(colors[ci.toInt()].copy(alpha = a), topLeft = Offset(x, y), size = androidx.compose.ui.geometry.Size(sz, sz * (0.4f + 0.6f * kotlin.math.abs(sin(spin + p * 12f)))))
+        }
+    }
+}
+
+/** "You did it" chip that pops in during the celebration and fades away. */
+@Composable
+private fun CongratsBadge(key: Int, modifier: Modifier) {
+    val t = remember(key) { Animatable(0f) }
+    LaunchedEffect(key) { t.animateTo(1f, tween(2600, easing = LinearEasing)) }
+    val p = t.value
+    if (p >= 1f) return
+    val pop = if (p < 0.15f) p / 0.15f else 1f
+    val alpha = if (p > 0.75f) ((1f - p) / 0.25f) else 1f
+    Text(
+        "آفرین! آب امروز کامل شد 🎉",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = Color.White.copy(alpha = alpha),
+        modifier = modifier
+            .scale(0.6f + 0.4f * pop)
+            .clip(RoundedCornerShape(50))
+            .background(WaterBlue.copy(alpha = 0.92f * alpha))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
