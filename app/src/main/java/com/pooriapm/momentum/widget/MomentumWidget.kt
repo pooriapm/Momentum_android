@@ -51,6 +51,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import androidx.glance.color.ColorProvider
 import androidx.glance.unit.ColorProvider
 import com.pooriapm.momentum.MainActivity
 import com.pooriapm.momentum.data.Api
@@ -86,16 +87,19 @@ data class WidgetSnapshot(
 /** The launcher lays the widget out in the phone's language; this mark keeps Persian lines right-to-left. */
 private fun rtl(text: String) = "‏$text"
 
-private val Cream = Color(0xFFFBF6EE)
-private val Ink = Color(0xFF1C1A17)
-private val Muted = Color(0xFF6E675D)
-private val Saffron = Color(0xFFA35E00)
-private val Green = Color(0xFF2B7A4B)
-private val Water = Color(0xFF3DA5F4)
-private val WaterSoft = Color(0xFFE3F2FD)
-private val WaterEmpty = Color(0xFFC6E2F7)
-private val SaffronSoft = Color(0xFFF6E7CF)
-private val SkippedTone = Color(0xFFB9B1A5)
+// Day and night pairs: the widget follows the phone's dark mode, like the app.
+private val Cream = ColorProvider(day = Color(0xFFFBF6EE), night = Color(0xFF26231F))
+private val Ink = ColorProvider(day = Color(0xFF1C1A17), night = Color(0xFFF4F1EA))
+private val Muted = ColorProvider(day = Color(0xFF6E675D), night = Color(0xFFC2BBAE))
+private val Saffron = ColorProvider(day = Color(0xFFA35E00), night = Color(0xFFF0A93B))
+private val SaffronFill = ColorProvider(day = Color(0xFFA35E00), night = Color(0xFFC27A12))
+private val Green = ColorProvider(day = Color(0xFF2B7A4B), night = Color(0xFF3FA36C))
+private val Water = ColorProvider(day = Color(0xFF3DA5F4), night = Color(0xFF4FB0F5))
+private val WaterSoft = ColorProvider(day = Color(0xFFE3F2FD), night = Color(0xFF1E2E3B))
+private val WaterEmpty = ColorProvider(day = Color(0xFFC6E2F7), night = Color(0xFF2F4A60))
+private val SaffronSoft = ColorProvider(day = Color(0xFFF6E7CF), night = Color(0xFF3E3018))
+private val SkippedTone = ColorProvider(day = Color(0xFFB9B1A5), night = Color(0xFF5E5951))
+private val OnFill = ColorProvider(day = Color.White, night = Color.White)
 
 // One grid for every size: the same gap, radius, badge and button everywhere.
 private val GAP = 8.dp
@@ -104,7 +108,7 @@ private val BADGE = 26.dp
 private val BUTTON = 36.dp
 private val BUTTON_SMALL = 32.dp
 
-private val waterText = TextStyle(color = ColorProvider(Water), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Right)
+private val waterText = TextStyle(color = Water, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Right)
 
 /** Whether the launcher lays rows out right-to-left (a Persian phone) or left-to-right. */
 private val LocalRtlDevice = staticCompositionLocalOf { false }
@@ -143,7 +147,7 @@ class MomentumWidget : GlanceAppWidget() {
         val size = LocalSize.current
         CompositionLocalProvider(LocalRtlDevice provides rtlDevice) {
             Box(
-                GlanceModifier.fillMaxSize().background(ColorProvider(Cream)).cornerRadius(24.dp)
+                GlanceModifier.fillMaxSize().background(Cream).cornerRadius(24.dp)
                     .padding(if (size.height < MEDIUM.height) 10.dp else 14.dp)
                     .clickable(actionStartActivity<MainActivity>()),
                 contentAlignment = Alignment.Center,
@@ -151,7 +155,7 @@ class MomentumWidget : GlanceAppWidget() {
                 when {
                     current == null -> Text(
                         rtl("Momentum · برای دیدن برنامه امروز اپ را باز کن"),
-                        style = TextStyle(color = ColorProvider(Muted), fontSize = 12.sp, textAlign = TextAlign.Center),
+                        style = TextStyle(color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center),
                     )
                     size.height >= LARGE.height -> Large(current, waterMl, busy)
                     size.height >= MEDIUM.height -> Medium(current, waterMl, busy)
@@ -179,7 +183,7 @@ class MomentumWidget : GlanceAppWidget() {
             },
             end = {
                 if (next != null) {
-                    ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
+                    ActionButton("✓", busy == BUSY_MEAL, SaffronFill, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
                     Spacer(GlanceModifier.width(6.dp))
                 }
                 ActionButton("+", busy == BUSY_WATER, Water, busy == null, actionRunCallback<AddWaterAction>(), BUTTON_SMALL)
@@ -225,12 +229,12 @@ class MomentumWidget : GlanceAppWidget() {
                     Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.Center) {
                         val row = GlanceModifier.fillMaxWidth().cornerRadius(INNER_RADIUS)
                         RtlRow(
-                            (if (isNext) row.background(ColorProvider(SaffronSoft)) else row).padding(horizontal = 10.dp, vertical = 6.dp),
+                            (if (isNext) row.background(SaffronSoft) else row).padding(horizontal = 10.dp, vertical = 6.dp),
                             // The next meal's badge is its tick button, in the same column as the other badges.
                             start = {
                                 Box(GlanceModifier.size(BUTTON_SMALL), contentAlignment = Alignment.Center) {
                                     if (isNext) {
-                                        ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
+                                        ActionButton("✓", busy == BUSY_MEAL, SaffronFill, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON_SMALL)
                                     } else {
                                         StatusBadge(meal.status)
                                     }
@@ -263,14 +267,14 @@ class MomentumWidget : GlanceAppWidget() {
         RtlRow(
             GlanceModifier.fillMaxWidth(),
             start = {
-                Text("Momentum", style = TextStyle(color = ColorProvider(Saffron), fontSize = 14.sp, fontWeight = FontWeight.Bold))
+                Text("Momentum", style = TextStyle(color = Saffron, fontSize = 14.sp, fontWeight = FontWeight.Bold))
             },
             middle = { Spacer(GlanceModifier.defaultWeight()) },
             end = {
-                Box(GlanceModifier.background(ColorProvider(SaffronSoft)).cornerRadius(10.dp).padding(horizontal = 9.dp, vertical = 3.dp)) {
+                Box(GlanceModifier.background(SaffronSoft).cornerRadius(10.dp).padding(horizontal = 9.dp, vertical = 3.dp)) {
                     Text(
                         rtl("${done.fa()} از ${day.meals.size.fa()} وعده"),
-                        style = TextStyle(color = ColorProvider(Saffron), fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                        style = TextStyle(color = Saffron, fontSize = 11.sp, fontWeight = FontWeight.Bold),
                     )
                 }
             },
@@ -281,7 +285,7 @@ class MomentumWidget : GlanceAppWidget() {
     @Composable
     private fun NextMeal(day: WidgetSnapshot, busy: String?, modifier: GlanceModifier, card: Boolean) {
         val next = day.meals.firstOrNull { it.status == "planned" }
-        val box = if (card) modifier.background(ColorProvider(SaffronSoft)).cornerRadius(INNER_RADIUS).padding(horizontal = 12.dp) else modifier
+        val box = if (card) modifier.background(SaffronSoft).cornerRadius(INNER_RADIUS).padding(horizontal = 12.dp) else modifier
         Box(box, contentAlignment = Alignment.Center) {
             RtlRow(
                 GlanceModifier.fillMaxWidth(),
@@ -300,7 +304,7 @@ class MomentumWidget : GlanceAppWidget() {
                     }
                 },
                 end = if (next == null) null else {
-                    { ActionButton("✓", busy == BUSY_MEAL, Saffron, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON) }
+                    { ActionButton("✓", busy == BUSY_MEAL, SaffronFill, busy == null, actionRunCallback<MarkEatenAction>(), BUTTON) }
                 },
             )
         }
@@ -320,7 +324,7 @@ class MomentumWidget : GlanceAppWidget() {
                     else -> SaffronSoft
                 }
                 Box(GlanceModifier.defaultWeight().padding(start = if (i == 0) 0.dp else 3.dp, end = if (i == meals.lastIndex) 0.dp else 3.dp)) {
-                    Box(GlanceModifier.fillMaxWidth().height(6.dp).cornerRadius(3.dp).background(ColorProvider(color))) {}
+                    Box(GlanceModifier.fillMaxWidth().height(6.dp).cornerRadius(3.dp).background(color)) {}
                 }
             }
         }
@@ -335,7 +339,7 @@ class MomentumWidget : GlanceAppWidget() {
         val done = waterMl >= day.waterTargetMl
         val amount = if (done) "💧 ${litres(waterMl)} لیتر · کامل شد" else "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)} لیتر"
         RtlRow(
-            GlanceModifier.fillMaxWidth().background(ColorProvider(WaterSoft)).cornerRadius(INNER_RADIUS)
+            GlanceModifier.fillMaxWidth().background(WaterSoft).cornerRadius(INNER_RADIUS)
                 .padding(horizontal = 10.dp, vertical = if (slim) 5.dp else 8.dp),
             start = if (!slim) null else {
                 { Text(rtl(if (done) "💧 کامل شد" else "💧 ${litres(waterMl)} از ${litres(day.waterTargetMl)}"), maxLines = 1, style = waterText) }
@@ -365,7 +369,7 @@ class MomentumWidget : GlanceAppWidget() {
                 Box(GlanceModifier.defaultWeight().padding(start = if (i == 0) 0.dp else 2.dp, end = if (i == glasses - 1) 0.dp else 2.dp)) {
                     Box(
                         GlanceModifier.fillMaxWidth().height(12.dp).cornerRadius(3.dp)
-                            .background(ColorProvider(if (filled) Water else WaterEmpty)),
+                            .background(if (filled) Water else WaterEmpty),
                     ) {}
                 }
             }
@@ -376,12 +380,12 @@ class MomentumWidget : GlanceAppWidget() {
     @Composable
     private fun StatusBadge(status: String) {
         val (glyph, bg, fg) = when (status) {
-            "completed" -> Triple("✓", Green, Color.White)
-            "skipped" -> Triple("–", SkippedTone, Color.White)
+            "completed" -> Triple("✓", Green, OnFill)
+            "skipped" -> Triple("–", SkippedTone, OnFill)
             else -> Triple("•", SaffronSoft, Saffron)
         }
-        Box(GlanceModifier.size(BADGE).cornerRadius(BADGE / 2).background(ColorProvider(bg)), contentAlignment = Alignment.Center) {
-            Text(glyph, style = TextStyle(color = ColorProvider(fg), fontSize = 13.sp, fontWeight = FontWeight.Bold))
+        Box(GlanceModifier.size(BADGE).cornerRadius(BADGE / 2).background(bg), contentAlignment = Alignment.Center) {
+            Text(glyph, style = TextStyle(color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
     }
 
@@ -391,7 +395,7 @@ class MomentumWidget : GlanceAppWidget() {
         modifier: GlanceModifier,
         title: String,
         subtitle: String?,
-        titleColor: Color,
+        titleColor: ColorProvider,
         titleSize: Int,
         bold: Boolean = true,
         subtitleFirst: Boolean = false,
@@ -404,7 +408,7 @@ class MomentumWidget : GlanceAppWidget() {
                 maxLines = 1,
                 modifier = GlanceModifier.fillMaxWidth(),
                 style = TextStyle(
-                    color = ColorProvider(titleColor),
+                    color = titleColor,
                     fontSize = titleSize.sp,
                     fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
                     textAlign = TextAlign.Right,
@@ -420,7 +424,7 @@ class MomentumWidget : GlanceAppWidget() {
             rtl(text),
             maxLines = 1,
             modifier = GlanceModifier.fillMaxWidth(),
-            style = TextStyle(color = ColorProvider(Muted), fontSize = size.sp, textAlign = TextAlign.Right),
+            style = TextStyle(color = Muted, fontSize = size.sp, textAlign = TextAlign.Right),
         )
     }
 
@@ -453,13 +457,13 @@ class MomentumWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun ActionButton(label: String, busy: Boolean, color: Color, enabled: Boolean, action: Action, side: Dp) {
-        val base = GlanceModifier.size(side).background(ColorProvider(color)).cornerRadius(side / 2)
+    private fun ActionButton(label: String, busy: Boolean, color: ColorProvider, enabled: Boolean, action: Action, side: Dp) {
+        val base = GlanceModifier.size(side).background(color).cornerRadius(side / 2)
         Box(if (enabled) base.clickable(action) else base, contentAlignment = Alignment.Center) {
             if (busy) {
-                CircularProgressIndicator(GlanceModifier.size(side - 14.dp), color = ColorProvider(Color.White))
+                CircularProgressIndicator(GlanceModifier.size(side - 14.dp), color = OnFill)
             } else {
-                Text(label, style = TextStyle(color = ColorProvider(Color.White), fontSize = (side.value * 0.5f).sp, fontWeight = FontWeight.Bold))
+                Text(label, style = TextStyle(color = OnFill, fontSize = (side.value * 0.5f).sp, fontWeight = FontWeight.Bold))
             }
         }
     }
