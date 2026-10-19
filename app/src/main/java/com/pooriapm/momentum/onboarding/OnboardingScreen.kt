@@ -272,6 +272,11 @@ private fun CountryStep(state: OnboardingState) {
     }
 }
 
+private val injuryAreas = listOf(
+    "knee" to "زانو", "ankle" to "مچ پا", "hip" to "لگن", "lower_back" to "کمر",
+    "shoulder" to "شانه", "elbow" to "آرنج", "wrist" to "مچ دست", "neck" to "گردن",
+)
+
 @Composable
 private fun HealthStep(state: OnboardingState) {
     val a = state.answers
@@ -280,6 +285,10 @@ private fun HealthStep(state: OnboardingState) {
     YesNoQuestion("دیابت، بیماری کلیه، کبد، قلب یا دارویی که روی وزن اثر دارد؟", a["highRiskCondition"]) { state.set("highRiskCondition", it) }
     YesNoQuestion("الان علامت شدید یا ناگهانی داری که کمک فوری لازم دارد؟", a["urgentSymptoms"]) { state.set("urgentSymptoms", it) }
     YesNoQuestion("آسیب یا محدودیت حرکتی داری؟", a["injuryLimitation"]) { state.set("injuryLimitation", it) }
+    if (a["injuryLimitation"] == "yes") {
+        Text("کدام قسمت بدن؟ (اختیاری)", style = MaterialTheme.typography.titleMedium)
+        ChipGroup(injuryAreas, a.list("injuryAreas").toSet()) { state.toggle("injuryAreas", it) }
+    }
     when (healthOutcome(a)) {
         HealthOutcome.Urgent -> InfoCard("اول کمک فوری بگیر") {
             Text("برای علامت شدید یا ناگهانی با اورژانس ۱۱۵ یا پزشک تماس بگیر. هیچ درخواستی مصرف نشده است.")
@@ -435,7 +444,11 @@ private fun ReviewStep(state: OnboardingState) {
         a["heightCm"]?.let { "${it.fa()} سانتی‌متر" }, a["weightKg"]?.let { "${it.fa()} کیلوگرم" },
     ).joinToString(" · "))
     Row("هدف", Step.Goal, listOfNotNull(goalLabels[a["goalType"]], a["targetWeightKg"]?.let { "هدف ${it.fa()} کیلوگرم" }).joinToString(" · "))
-    Row("ایمنی", Step.Health, if (healthOutcome(a) == HealthOutcome.Eligible) "مانع ایمنی ثبت نشده" else "نیاز به بررسی")
+    Row("ایمنی", Step.Health, listOfNotNull(
+        if (healthOutcome(a) == HealthOutcome.Eligible) "مانع ایمنی ثبت نشده" else "نیاز به بررسی",
+        a.list("injuryAreas").takeIf { a["injuryLimitation"] == "yes" && it.isNotEmpty() }
+            ?.mapNotNull { v -> injuryAreas.firstOrNull { it.first == v }?.second }?.joinToString("، ")?.let { "آسیب: $it" },
+    ).joinToString(" · "))
     Row("غذا", Step.Diet, listOfNotNull(
         if (a["dietStyle"] == "vegetarian") "گیاه‌خوار" else "همه‌چیزخوار",
         a.list("allergies").takeIf { it.isNotEmpty() }?.joinToString("، ") { v -> allergens.first { it.first == v }.second }?.let { "حساسیت: $it" },

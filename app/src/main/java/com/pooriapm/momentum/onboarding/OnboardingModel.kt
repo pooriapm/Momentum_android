@@ -67,6 +67,9 @@ fun bmi(a: Answers): Double? {
     return w / ((h / 100) * (h / 100))
 }
 
+/** Body areas the server accepts for injuryAreas (comma-separated, only when injuryLimitation = yes). */
+val INJURY_AREAS = listOf("knee", "ankle", "hip", "lower_back", "shoulder", "elbow", "wrist", "neck")
+
 enum class HealthOutcome { Eligible, Incomplete, Blocked, Urgent }
 
 private val healthQuestions = listOf("pregnancyOrBreastfeeding", "eatingDisorderHistory", "highRiskCondition", "urgentSymptoms", "injuryLimitation")
@@ -125,6 +128,8 @@ fun prepareForCompletion(input: Answers): Answers {
     if (next.int("restaurantMealsPerWeek") == 0) next.remove("restaurantPreferences")
     if (next["trainingLocation"] == "outdoor") next.remove("equipment")
     if ("other" !in next.list("allergies")) next.remove("otherAllergy")
+    if (next["injuryLimitation"] != "yes") next.remove("injuryAreas")
+    else next["injuryAreas"]?.let { v -> next["injuryAreas"] = v.split(",").filter { it in INJURY_AREAS }.distinct().joinToString(",") }
 
     val count = next["requestedMealCount"]?.takeIf { it in setOf("2", "3", "4", "5", "6") } ?: "3"
     val label = "${PERSIAN_DIGITS[count.toInt()]} وعده"
