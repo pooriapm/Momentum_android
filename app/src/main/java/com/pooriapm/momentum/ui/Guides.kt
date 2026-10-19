@@ -218,7 +218,7 @@ object Guides {
     fun seen(context: Context, guide: Guide) = prefs(context).getBoolean("guide:${guide.id}", false)
 
     fun markSeen(context: Context, guide: Guide) {
-        prefs(context).edit().putBoolean("guide:${guide.id}", true).apply()
+        prefs(context).edit().putBoolean("guide:${guide.id}", true).commit()
     }
 }
 

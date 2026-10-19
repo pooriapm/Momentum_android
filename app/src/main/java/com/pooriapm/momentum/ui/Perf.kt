@@ -3,7 +3,6 @@ package com.pooriapm.momentum.ui
 import android.app.ActivityManager
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.runtime.Composable
@@ -31,16 +30,16 @@ object DevicePerf {
     private const val KEY = "lite_mode"
 
     /**
-     * A phone that struggles with blur and constant redraws: the system's own low-RAM flag, 3 GB
-     * of memory or less, or Android 9 and older. RAM and the Android version never change while the
-     * app runs, so this is measured once.
+     * A phone that struggles with blur and constant redraws: 2 GB of memory or less (or the system's
+     * own low-RAM flag). Phones sold as 2 GB report about 1.8–2 GB and 3 GB phones about 2.7–2.9 GB,
+     * so the line is at 2.5 GB; 3 GB and up run the full app. RAM never changes, so this is measured once.
      */
     @Volatile private var weak: Boolean? = null
 
     fun isWeak(context: Context): Boolean = weak ?: run {
         val am = context.getSystemService(ActivityManager::class.java)
         val memory = ActivityManager.MemoryInfo().also { am?.getMemoryInfo(it) }.totalMem
-        val result = am == null || am.isLowRamDevice || memory in 1..(3_300L shl 20) || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        val result = am == null || am.isLowRamDevice || memory in 1..(2_560L shl 20)
         weak = result
         result
     }
@@ -49,7 +48,8 @@ object DevicePerf {
         runCatching { LiteSetting.valueOf(prefs.getString(KEY, null) ?: "Auto") }.getOrDefault(LiteSetting.Auto)
 
     fun save(prefs: SharedPreferences, value: LiteSetting) {
-        prefs.edit().putString(KEY, value.name).apply()
+        // Written at once (not in the background), so it survives the app being closed right away.
+        prefs.edit().putString(KEY, value.name).commit()
     }
 
     /** Battery saver and "remove animations" can change at any time, so this is read again on each return to the app. */

@@ -52,7 +52,7 @@ object Reminders {
             ?: ReminderSettings()
 
     fun saveSettings(context: Context, settings: ReminderSettings) {
-        prefs(context).edit().putString("settings", json.encodeToString(ReminderSettings.serializer(), settings)).apply()
+        prefs(context).edit().putString("settings", json.encodeToString(ReminderSettings.serializer(), settings)).commit()
     }
 
     fun canNotify(context: Context): Boolean =
