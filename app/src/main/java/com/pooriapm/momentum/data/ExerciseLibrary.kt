@@ -1,6 +1,8 @@
 package com.pooriapm.momentum.data
 
 import android.content.Context
+import com.airbnb.lottie.LottieComposition
+import com.airbnb.lottie.LottieCompositionFactory
 import com.pooriapm.momentum.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -34,9 +36,10 @@ data class ExerciseLibraryData(
 )
 
 /**
- * The exercise library (steps, tips, animations) lives on the server, not in the APK: the list is a
- * small zip fetched once and refreshed every few days, and each animation is downloaded only when
- * an exercise of the user's own plan shows it. The phone keeps a copy, so it also works offline.
+ * The exercise library (steps, tips, animations) lives on the server, not in the APK. The list is a
+ * small zip fetched once and refreshed every few days; when a plan arrives, the animations of its
+ * exercises are downloaded once and kept on the phone. Opening a guide then reads only the phone,
+ * so it is instant and works offline.
  */
 object ExerciseLibrary {
     /** Public storage; momentum.properties can point a debug build at a local server instead. */
@@ -53,7 +56,45 @@ object ExerciseLibrary {
     /** What this process has already read, so a screen can draw before [load] returns. */
     val cached: Index? get() = loaded
 
-    fun animationUrl(anim: String) = "${baseUrl}anim/$anim.zip"
+    private fun animationUrl(anim: String) = "${baseUrl}anim/$anim.zip"
+
+    private fun animationFile(context: Context, anim: String) =
+        File(File(context.filesDir, "exercise-anim").apply { mkdirs() }, "$anim.zip")
+
+    /** Downloads every animation the plan's workouts use that the phone does not have yet. */
+    suspend fun prepare(context: Context, exercises: List<Pair<String?, String>>) {
+        val index = load(context) ?: return
+        val needed = exercises.mapNotNullTo(HashSet()) { (key, name) -> index.find(key, name)?.anim }
+        withContext(Dispatchers.IO) {
+            for (anim in needed) {
+                val file = animationFile(context, anim)
+                if (!file.exists()) runCatching { download(anim, file) }
+            }
+        }
+    }
+
+    /** One animation: from the phone, or downloaded (and kept) if the plan changed since. */
+    suspend fun animation(context: Context, anim: String): LottieComposition? = withContext(Dispatchers.IO) {
+        val file = animationFile(context, anim)
+        if (!file.exists()) runCatching { download(anim, file) }
+        if (!file.exists()) return@withContext null
+        // Lottie keeps parsed animations in memory by this key, so a list and its guide share one.
+        runCatching {
+            ZipInputStream(file.inputStream()).use { LottieCompositionFactory.fromZipStreamSync(context, it, "exercise:$anim").value }
+        }.getOrNull() ?: run { file.delete(); null }
+    }
+
+    private fun download(anim: String, target: File) {
+        val request = Request.Builder().url(animationUrl(anim)).build()
+        sharedHttp.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return
+            val bytes = response.body?.bytes() ?: return
+            // Written whole, then renamed: a cut connection never leaves half a file behind.
+            val part = File(target.parentFile, target.name + ".part")
+            part.writeBytes(bytes)
+            part.renameTo(target)
+        }
+    }
 
     /** The cached library at once when there is one; downloads it the first time and when stale. */
     suspend fun load(context: Context): Index? = lock.withLock {

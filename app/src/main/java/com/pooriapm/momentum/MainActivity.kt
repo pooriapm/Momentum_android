@@ -39,6 +39,8 @@ import androidx.lifecycle.lifecycleScope
 import com.pooriapm.momentum.billing.BazaarBilling
 import com.pooriapm.momentum.data.Api
 import com.pooriapm.momentum.data.Connectivity
+import com.pooriapm.momentum.data.ExerciseLibrary
+import kotlinx.coroutines.launch
 import com.pooriapm.momentum.onboarding.OnboardingScreen
 import com.pooriapm.momentum.reminders.Reminders
 import com.pooriapm.momentum.widget.MomentumWidget
@@ -65,6 +67,12 @@ class MainActivity : ComponentActivity() {
                         if (dashboard == null) Reminders.clear(applicationContext)
                         else Reminders.sync(applicationContext, dashboard, workoutDone)
                         MomentumWidget.saveSnapshot(applicationContext, dashboard)
+                        // The month's exercise animations are fetched now, so guides open from the phone.
+                        dashboard?.plan?.let { plan ->
+                            val exercises = (plan.days + plan.day).flatMap { it.workout?.exercises.orEmpty() }
+                                .map { it.exerciseKey to it.name }
+                            lifecycleScope.launch { ExerciseLibrary.prepare(applicationContext, exercises) }
+                        }
                     },
                     local = applicationContext.getSharedPreferences("momentum.local", MODE_PRIVATE),
                     onWaterChanged = { MomentumWidget.saveWater(applicationContext, it) },

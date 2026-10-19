@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,10 +51,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.rememberLottieComposition
 import com.pooriapm.momentum.data.ExerciseLibrary
 import com.pooriapm.momentum.data.LibraryExercise
 import java.net.URLEncoder
@@ -72,13 +72,16 @@ fun rememberExerciseIndex(): ExerciseLibrary.Index? {
 }
 
 /**
- * An exercise's animation on its tile. Lists show one still frame (many moving thumbnails would
- * redraw the screen all the time); the guide sheet plays it. Without an animation, a dumbbell icon.
+ * An exercise's animation on its tile, read from the phone. Lists show one still frame (many moving
+ * thumbnails would redraw the screen all the time); the guide sheet plays it. Without one, a dumbbell.
  */
 @Composable
 fun ExerciseAnimation(anim: String?, modifier: Modifier = Modifier, playing: Boolean = false, corner: Dp = 14.dp) {
     Box(modifier.clip(RoundedCornerShape(corner)).background(Tile), contentAlignment = Alignment.Center) {
-        val composition = anim?.let { rememberLottieComposition(LottieCompositionSpec.Url(ExerciseLibrary.animationUrl(it))).value }
+        val context = LocalContext.current
+        val composition = produceState<LottieComposition?>(null, anim) {
+            value = anim?.let { ExerciseLibrary.animation(context.applicationContext, it) }
+        }.value
         when {
             composition == null -> Icon(
                 Icons.Outlined.FitnessCenter,
