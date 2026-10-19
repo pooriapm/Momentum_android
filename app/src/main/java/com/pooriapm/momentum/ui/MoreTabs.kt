@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -49,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -93,6 +95,7 @@ fun ProgressTab(dashboard: Dashboard) {
                     val first = weights.first().weightKg!!
                     val last = weights.last().weightKg!!
                     Text("${last.faDecimal()} کیلوگرم", style = MaterialTheme.typography.headlineMedium)
+                    WeightChart(dashboard.recentCheckins, dashboard.activeGoal?.targetWeightKg, dashboard.localDate, Modifier.fillMaxWidth().padding(vertical = 8.dp))
                     val diff = last - first
                     Text(
                         when {
@@ -102,7 +105,7 @@ fun ProgressTab(dashboard: Dashboard) {
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    weights.takeLast(7).reversed().forEach {
+                    weights.takeLast(3).reversed().forEach {
                         Row(Modifier.fillMaxWidth()) {
                             Text(jalaliLabel(it.localDate), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                             Text("${it.weightKg?.faDecimal()} کیلوگرم", style = MaterialTheme.typography.bodyMedium)
@@ -145,6 +148,11 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     fun open(path: String, title: String) { page = "${BuildConfig.SITE_URL.trimEnd('/')}/fa$path" to title }
     var buying by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // "Add to home screen" for the widget, where the launcher supports it (Android 8+).
+    val canPinWidget = remember {
+        android.os.Build.VERSION.SDK_INT >= 26 && android.appwidget.AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
+    }
     fun buy() {
         if (!state.online) {
             state.message = UiMessage(com.pooriapm.momentum.data.persianError("offline", com.pooriapm.momentum.data.ErrorKind.Offline))
@@ -171,7 +179,13 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
         item { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) }
         item {
             SettingsGroup {
-                SettingsRow(Icons.Outlined.Tune, "ترجیحات برنامه", last = true) { editing = true }
+                SettingsRow(Icons.Outlined.Tune, "ترجیحات برنامه", last = !canPinWidget) { editing = true }
+                if (canPinWidget) {
+                    SettingsRow(Icons.Outlined.Widgets, "افزودن ویجت به صفحه اصلی", last = true) {
+                        val manager = android.appwidget.AppWidgetManager.getInstance(context)
+                        manager.requestPinAppWidget(android.content.ComponentName(context, com.pooriapm.momentum.widget.MomentumWidgetReceiver::class.java), null, null)
+                    }
+                }
             }
         }
         item { ReminderSettingsCard(state) }

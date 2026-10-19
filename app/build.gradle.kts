@@ -44,6 +44,14 @@ android {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // Release-speed build for testing on the emulator next to the debug app (own id and data,
+        // debug signing). Debug builds run unoptimized and are several times slower to start.
+        create("perf") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".perf"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {
@@ -75,6 +83,8 @@ dependencies {
     // Liquid Glass (blur, lens refraction, highlights) for the floating tab bar: Kyant0/AndroidLiquidGlass.
     implementation("io.github.kyant0:backdrop:2.0.1")
     implementation("io.github.kyant0:shapes:1.2.1")
+    // Home-screen widget (next meal + one-tap tick).
+    implementation("androidx.glance:glance-appwidget:1.2.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

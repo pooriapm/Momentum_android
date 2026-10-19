@@ -16,6 +16,27 @@ data class Dashboard(
     @SerialName("recent_checkins") val recentCheckins: List<Checkin> = emptyList(),
     @SerialName("progress_series") val progressSeries: List<ProgressPoint> = emptyList(),
     @SerialName("plan_history") val planHistory: List<PlanHistoryItem> = emptyList(),
+    @SerialName("active_goal") val activeGoal: ActiveGoal? = null,
+    /** Today's water (server); null until the server sends it. */
+    @SerialName("water_today") val waterToday: WaterToday? = null,
+)
+
+@Serializable
+data class ActiveGoal(
+    @SerialName("goal_type") val goalType: String? = null,
+    @SerialName("start_weight_kg") val startWeightKg: Double? = null,
+    @SerialName("target_weight_kg") val targetWeightKg: Double? = null,
+)
+
+@Serializable
+data class WaterToday(@SerialName("local_date") val localDate: String, @SerialName("water_ml") val waterMl: Int = 0)
+
+/** One "eating out" suggestion from the plan. */
+@Serializable
+data class RestaurantTip(
+    val title: String,
+    @SerialName("order_instructions") val orderInstructions: List<String> = emptyList(),
+    @SerialName("estimated_nutrition") val estimatedNutrition: Nutrition? = null,
 )
 
 /** One monthly plan, current or past, as the dashboard lists them. */
@@ -57,6 +78,7 @@ data class Plan(
     val summary: String? = null,
     val day: PlanDay,
     val days: List<PlanDay> = emptyList(),
+    @SerialName("restaurant_guide") val restaurantGuide: List<RestaurantTip> = emptyList(),
 )
 
 @Serializable
@@ -75,6 +97,7 @@ data class Targets(
     @SerialName("protein_g") val proteinG: Double,
     @SerialName("carbs_g") val carbsG: Double,
     @SerialName("fat_g") val fatG: Double,
+    @SerialName("water_ml") val waterMl: Double? = null,
 )
 
 @Serializable

@@ -70,6 +70,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     var checkinOpen by rememberSaveable { mutableStateOf(false) }
     var runnerOpen by rememberSaveable { mutableStateOf(false) }
     var prefsOpen by rememberSaveable { mutableStateOf(false) }
+    var eatingOut by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(dashboard.localDate, day.workout != null) { if (day.workout != null) state.loadWorkout() }
     val done = day.meals.filter { it.completionStatus == "completed" }
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
@@ -83,6 +84,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        item { StreakCard(dashboard) }
         item { TargetCard(eaten, day.targets.calories, day.targets.proteinG, day.targets.carbsG, day.targets.fatG, done.size, day.meals.size) }
         item {
             ElevatedCard(Modifier.fillMaxWidth()) {
@@ -99,9 +101,23 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                 }
             }
         }
+        item { WaterCard(state, (day.targets.waterMl ?: 2200.0).toInt()) }
         item { PlanEndingCard(state, dashboard) { prefsOpen = true } }
         item { CheckinCard(dashboard.checkin != null) { checkinOpen = true } }
-        item { Text("وعده‌های امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
+        item {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("وعده‌های امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button) { eatingOut = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BouncingPlate(Modifier.size(26.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("بیرون غذا می‌خورم", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
         items(day.meals, key = { it.slotKey }) { meal -> MealCard(state, meal, day.localDate) { openMeal = meal } }
         day.workout?.let { workout -> item { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } }
             ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
@@ -114,6 +130,7 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     if (checkinOpen) CheckinSheet(state) { checkinOpen = false }
     if (runnerOpen) WorkoutRunner(state) { runnerOpen = false }
     if (prefsOpen) PreferencesScreen(state) { prefsOpen = false }
+    if (eatingOut) EatingOutSheet(dashboard.plan?.restaurantGuide.orEmpty()) { eatingOut = false }
 }
 
 @Composable

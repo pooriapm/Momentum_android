@@ -402,6 +402,16 @@ class Api(context: Context) {
         function("account-data", buildJsonObject { put("action", "undo-shopping-purchase"); put("purchase_id", id) }, UUID.randomUUID().toString())
     }
 
+    /** Sets today's water total (not an increment), so repeating it is harmless. */
+    suspend fun saveWater(localDate: String, waterMl: Int) {
+        function("checkins", buildJsonObject {
+            put("action", "save-water")
+            put("local_date", localDate)
+            put("timezone", java.util.TimeZone.getDefault().id)
+            put("water_ml", waterMl)
+        }, UUID.randomUUID().toString())
+    }
+
     /** Daily check-in, same contract as the website (checkins → save-daily). */
     suspend fun saveDailyCheckin(localDate: String, checkin: DailyCheckin) {
         function("checkins", buildJsonObject {

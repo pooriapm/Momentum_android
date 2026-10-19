@@ -44,6 +44,8 @@ class AppState(
     private val connectivity: Connectivity,
     /** Rebuilds local reminders after data changes (null in previews). */
     private val onPlanChanged: ((Dashboard?, Boolean) -> Unit)? = null,
+    /** Small on-device store (water until the server has it, widget snapshot). */
+    private val local: android.content.SharedPreferences? = null,
 ) : ViewModel() {
     var screen by mutableStateOf<Screen>(if (api.session != null) Screen.Loading else Screen.SignIn)
         private set
@@ -75,6 +77,31 @@ class AppState(
 
     var onboarding: OnboardingState? = null
         private set
+
+    /** Today's water in ml: the larger of the phone's and the server's count (never goes back). */
+    var waterMl by mutableStateOf(0)
+        private set
+    private var waterSync: Job? = null
+
+    private fun loadWater() {
+        val date = dashboard?.localDate ?: return
+        val saved = local?.getInt("water:$date", 0) ?: 0
+        val server = dashboard?.waterToday?.takeIf { it.localDate == date }?.waterMl ?: 0
+        waterMl = maxOf(saved, server)
+    }
+
+    /** One glass (250 ml) more or less. Saved on the phone at once, synced quietly after a pause. */
+    fun changeWater(glasses: Int) {
+        val date = dashboard?.localDate ?: return
+        waterMl = (waterMl + glasses * 250).coerceIn(0, 6000)
+        local?.edit()?.putInt("water:$date", waterMl)?.apply()
+        waterSync?.cancel()
+        waterSync = scope.launch {
+            delay(1500)
+            // Until the server has save-water this fails quietly; the phone keeps the count.
+            runCatching { api.saveWater(date, waterMl) }
+        }
+    }
 
     /** Today's workout session (null = not started); [workoutLoaded] tells "none" from "unknown". */
     var workout by mutableStateOf<WorkoutSession?>(null)
@@ -174,6 +201,7 @@ class AppState(
             try {
                 val previousDate = dashboard?.localDate
                 dashboard = api.dashboard().also(::route)
+                loadWater()
                 if (previousDate != dashboard?.localDate) {
                     workout = null
                     workoutLoaded = false
@@ -208,7 +236,8 @@ class AppState(
         if (api.session == null) return
         scope.launch {
             api.keepSessionAlive()
-            if (System.currentTimeMillis() - lastLoadedAt > 5 * 60_000) refresh()
+            val widgetChanged = (local?.getLong("widget_changed_at", 0L) ?: 0L) > lastLoadedAt
+            if (widgetChanged || System.currentTimeMillis() - lastLoadedAt > 5 * 60_000) refresh()
         }
     }
 
