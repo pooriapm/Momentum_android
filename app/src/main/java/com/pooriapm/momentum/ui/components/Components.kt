@@ -373,8 +373,8 @@ fun <T> Dropdown(label: String, shown: String?, options: List<Pair<T, String>>, 
 
 /** Card-like information block used on review and summary screens. */
 @Composable
-fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
+fun InfoCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             content()

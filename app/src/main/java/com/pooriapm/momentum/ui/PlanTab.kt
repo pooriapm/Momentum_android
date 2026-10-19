@@ -1,5 +1,7 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,7 +36,9 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
     val day = days[selected.coerceIn(days.indices)]
     val isToday = day.localDate == dashboard.localDate
 
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val list = rememberLazyListState()
+    GuideOnFirstVisit(Guides.plan, list)
+    LazyColumn(state = list, contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -42,19 +46,19 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
                     Text("${jalaliLabel(plan.validFrom)} تا ${jalaliLabel(plan.validTo)}", style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                GuideButton(Guides.plan)
+                GuideInfoButton(Guides.plan, list)
             }
         }
-        item { ShoppingEntry(state, plan, dashboard.localDate) }
+        item { Box(Modifier.guideTarget("plan_shopping")) { ShoppingEntry(state, plan, dashboard.localDate) } }
         item(key = "navigator") {
-            DayNavigator(
+            Box(Modifier.guideTarget("plan_days")) { DayNavigator(
                 index = selected.coerceIn(days.indices),
                 count = days.size,
                 todayIndex = todayIndex,
                 date = day.localDate,
                 training = day.workout != null,
                 onChange = { selected = it },
-            )
+            ) }
         }
         item(key = "targets") {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -63,7 +67,7 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item(key = "history") { PlanHistoryCard(dashboard.planHistory) }
+        item(key = "history") { Box(Modifier.guideTarget("plan_history")) { PlanHistoryCard(dashboard.planHistory) } }
         items(day.meals, key = { "${day.dayIndex}-${it.slotKey}" }) { meal ->
             MealCard(state, meal, day.localDate, editable = isToday) { openMeal = meal }
         }

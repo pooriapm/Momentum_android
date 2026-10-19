@@ -71,7 +71,8 @@ fun PlanEndingCard(state: AppState, dashboard: Dashboard, onEditPreferences: () 
     val left = daysLeft(dashboard) ?: return
     if (left > 3) return
     var noteOpen by rememberSaveable { mutableStateOf(false) }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth()) {
+    GuideOnFirstVisit(Guides.nextMonth)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth().guideTarget("next_month")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.EventRepeat, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
@@ -81,7 +82,7 @@ fun PlanEndingCard(state: AppState, dashboard: Dashboard, onEditPreferences: () 
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                GuideButton(Guides.nextMonth)
+                GuideInfoButton(Guides.nextMonth)
             }
             Text(
                 "برنامه ماه بعد بر اساس ترجیحات و گزارش‌های روزانه‌ات ساخته می‌شود. اگر چیزی باید عوض شود، الان بگو.",
@@ -124,10 +125,7 @@ fun NextCycleNoteSheet(state: AppState, onDismiss: () -> Unit) {
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("یادداشت برای ماه بعد", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                GuideButton(Guides.nextMonth, autoShow = false)
-            }
+            Text("یادداشت برای ماه بعد", style = MaterialTheme.typography.headlineSmall)
             Text(
                 "مثلاً «شام‌ها سبک‌تر باشد» یا «جمعه‌ها تمرین نمی‌کنم». موقع ساخت برنامه بعدی در نظر گرفته می‌شود.",
                 style = MaterialTheme.typography.bodySmall,

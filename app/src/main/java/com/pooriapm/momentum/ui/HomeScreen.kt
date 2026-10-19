@@ -90,7 +90,7 @@ fun HomeScreen(state: AppState, billing: BazaarBilling) {
         if (state.message == msg) state.message = null
     }
 
-    Box(Modifier.fillMaxSize()) {
+    GuideHost(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().glassSource(backdrop).hueBackground(LocalGlow.current)) {
         Scaffold(
             // Edge to edge: content scrolls under the gesture bar; only the top inset is padded.

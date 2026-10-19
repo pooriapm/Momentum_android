@@ -186,12 +186,13 @@ fun PreferencesScreen(state: AppState, onClose: () -> Unit) {
             }
         }
 
-        Box(Modifier.fillMaxSize().hueBackground(LocalGlow.current).safeDrawingPadding()) {
+        GuideHost(Modifier.fillMaxSize().hueBackground(LocalGlow.current).safeDrawingPadding()) {
+            GuideOnFirstVisit(Guides.preferences)
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = "بستن") }
                     Text("ترجیحات برنامه", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
-                    GuideButton(Guides.preferences, Modifier.padding(end = 12.dp))
+                    GuideInfoButton(Guides.preferences, modifier = Modifier.padding(end = 8.dp))
                 }
                 val p = prefs
                 when {
@@ -216,7 +217,7 @@ fun PreferencesScreen(state: AppState, onClose: () -> Unit) {
                                 DecimalField("وزن هدف", p.targetWeight, "کیلوگرم", { prefs = p.copy(targetWeight = it) })
                             }
                         }
-                        Section("غذا") {
+                        Section("غذا", Modifier.guideTarget("prefs_allergies")) {
                             SegmentedPicker(Diets.map { it.second }, Diets.indexOfFirst { it.first == p.diet }.takeIf { it >= 0 }) {
                                 prefs = p.copy(diet = Diets[it].first)
                             }
@@ -243,7 +244,7 @@ fun PreferencesScreen(state: AppState, onClose: () -> Unit) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        Section("برنامه تمرین") {
+                        Section("برنامه تمرین", Modifier.guideTarget("prefs_training")) {
                             Text("روزهای تمرین", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                                 Weekdays.forEach { (day, label) ->
@@ -310,8 +311,8 @@ fun PreferencesScreen(state: AppState, onClose: () -> Unit) {
 }
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+private fun Section(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()

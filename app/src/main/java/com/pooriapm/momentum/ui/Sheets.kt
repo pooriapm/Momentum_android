@@ -128,46 +128,49 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
         // The handle is drawn inside the hue so the background has no seam under it.
         dragHandle = null,
     ) {
-        Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    GuideButton(Guides.checkin)
-                }
-                ScoreQuestion("انرژی", "خیلی کم", "عالی", energy, backdrop) { energy = it }
-                ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood, backdrop) { mood = it }
-                ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger, backdrop) { hunger = it }
-                ScoreQuestion("ریکاوری بدن", "خسته", "کاملاً آماده", recovery, backdrop) { recovery = it }
-                NumberStepper("خواب دیشب", sleepHours, 0..14, "ساعت") { sleepHours = it }
-                NumberStepper("درد", pain, 0..10, "از ۱۰") { pain = it }
-                if (pain > 0) TextAnswer("کجای بدن؟", painWhere, { painWhere = it }, maxLength = 240)
-                DecimalField("وزن امروز (اختیاری)", weight, "کیلوگرم", { weight = it })
-                val canSave = pain == 0 || painWhere.isNotBlank()
-                Button(
-                    onClick = {
-                        state.saveCheckin(
-                            DailyCheckin(
-                                energyScore = energy, hungerScore = hunger, moodScore = mood, recoveryScore = recovery,
-                                sleepMinutes = sleepHours * 60, painScore = pain,
-                                painLocation = painWhere.trim().ifBlank { null },
-                                weightKg = weight.toDoubleOrNull()?.takeIf { it in 20.0..500.0 },
-                            ),
-                            onDismiss,
-                        )
-                    },
-                    enabled = canSave && !state.savingCheckin,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+GuideHost(Modifier.fillMaxWidth()) {
+            GuideOnFirstVisit(Guides.checkin)
+            Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت گزارش")
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                        GuideInfoButton(Guides.checkin)
+                    }
+                    Box(Modifier.guideTarget("checkin_scores")) { ScoreQuestion("انرژی", "خیلی کم", "عالی", energy, backdrop) { energy = it } }
+                    ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood, backdrop) { mood = it }
+                    ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger, backdrop) { hunger = it }
+                    ScoreQuestion("ریکاوری بدن", "خسته", "کاملاً آماده", recovery, backdrop) { recovery = it }
+                    Box(Modifier.guideTarget("checkin_body")) { NumberStepper("خواب دیشب", sleepHours, 0..14, "ساعت") { sleepHours = it } }
+                    NumberStepper("درد", pain, 0..10, "از ۱۰") { pain = it }
+                    if (pain > 0) TextAnswer("کجای بدن؟", painWhere, { painWhere = it }, maxLength = 240)
+                    Box(Modifier.guideTarget("checkin_weight")) { DecimalField("وزن امروز (اختیاری)", weight, "کیلوگرم", { weight = it }) }
+                    val canSave = pain == 0 || painWhere.isNotBlank()
+                    Button(
+                        onClick = {
+                            state.saveCheckin(
+                                DailyCheckin(
+                                    energyScore = energy, hungerScore = hunger, moodScore = mood, recoveryScore = recovery,
+                                    sleepMinutes = sleepHours * 60, painScore = pain,
+                                    painLocation = painWhere.trim().ifBlank { null },
+                                    weightKg = weight.toDoubleOrNull()?.takeIf { it in 20.0..500.0 },
+                                ),
+                                onDismiss,
+                            )
+                        },
+                        enabled = canSave && !state.savingCheckin,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    ) {
+                        if (state.savingCheckin) CircularProgressIndicator(strokeWidth = 2.dp) else Text("ثبت گزارش")
+                    }
+                    Text("گزارش روزانه برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("گزارش روزانه برنامه این ماه را تغییر نمی‌دهد؛ در ساخت ماه بعد استفاده می‌شود.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+}
     }
 }

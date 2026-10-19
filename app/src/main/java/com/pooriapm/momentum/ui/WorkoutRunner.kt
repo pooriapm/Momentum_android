@@ -1,5 +1,6 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -113,7 +114,7 @@ fun WorkoutRunner(state: AppState, onClose: () -> Unit) {
             }
         }
         val session = state.workout
-        Box(Modifier.fillMaxSize().hueBackground(glow).safeDrawingPadding()) {
+        GuideHost(Modifier.fillMaxSize().hueBackground(glow).safeDrawingPadding()) {
             when {
                 session == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 session.status == "completed" -> Finished(session, onClose)
@@ -134,6 +135,8 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
     var painOpen by rememberSaveable { mutableStateOf(false) }
     var guide by remember { mutableStateOf<WorkoutExerciseLog?>(null) }
     val index = rememberExerciseIndex()
+    val list = rememberLazyListState()
+    GuideOnFirstVisit(Guides.workout, list)
     val done = session.exercises.count { it.status == "completed" || it.status == "skipped" }
 
     // An exercise whose sets are all ticked is closed on the server, so "finish" can be enabled.
@@ -150,8 +153,8 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
                 Text("${done.fa()} از ${session.exercises.size.fa()} حرکت", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            GuideButton(Guides.workout)
-            TextButton(onClick = { painOpen = true }) {
+            GuideInfoButton(Guides.workout, list)
+            TextButton(onClick = { painOpen = true }, modifier = Modifier.guideTarget("run_pain")) {
                 Icon(Icons.Outlined.Healing, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("درد دارم")
@@ -166,12 +169,14 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
         RestTimer(restEndsAt, restTotal) { restEndsAt = 0L }
         LazyColumn(
             Modifier.weight(1f),
+            state = list,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(session.exercises, key = { it.id }) { exercise ->
                 ExerciseCard(
                     exercise = exercise,
+                    first = exercise.position == session.exercises.minOf { it.position },
                     anim = index?.find(exercise.substituteExerciseId ?: exercise.exerciseKey, exercise.substituteName ?: exercise.plannedName)?.anim,
                     onGuide = { guide = exercise },
                     busy = state.workoutBusy,
@@ -198,7 +203,7 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
             Button(
                 onClick = { state.workoutStep("finish") },
                 enabled = session.canFinish && !state.workoutBusy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).guideTarget("run_finish"),
             ) { Text(if (session.canFinish) "پایان تمرین" else "حرکت‌ها را انجام بده یا رد کن") }
             TextButton(onClick = { stopping = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("توقف تمرین") }
         }
@@ -274,6 +279,7 @@ private fun RestTimer(endsAt: Long, total: Int, onDone: () -> Unit) {
 @Composable
 private fun ExerciseCard(
     exercise: WorkoutExerciseLog,
+    first: Boolean,
     anim: String?,
     onGuide: () -> Unit,
     busy: Boolean,
@@ -286,7 +292,7 @@ private fun ExerciseCard(
     val completed = exercise.status == "completed"
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.surface),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(if (first) Modifier.guideTarget("run_exercise") else Modifier),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -312,7 +318,11 @@ private fun ExerciseCard(
                 Text("رد شد${exercise.skipReason?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.bodySmall, color = colors.outline)
                 return@Column
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = if (first) Modifier.guideTarget("run_sets") else Modifier,
+            ) {
                 exercise.sets.sortedBy { it.setNumber }.forEach { set ->
                     val on = set.status == "completed"
                     val fill by animateColorAsState(if (on) colors.tertiary else colors.surface, label = "set")

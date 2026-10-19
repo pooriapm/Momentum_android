@@ -1,5 +1,6 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -76,18 +77,20 @@ import com.pooriapm.momentum.ui.components.InfoCard
 fun ProgressTab(dashboard: Dashboard) {
     val series = dashboard.progressSeries
     val weights = dashboard.recentCheckins.filter { it.weightKg != null }.sortedBy { it.localDate }
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val list = rememberLazyListState()
+    GuideOnFirstVisit(Guides.progress, list)
+    LazyColumn(state = list, contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("روندی که ساخته‌ای", style = MaterialTheme.typography.headlineSmall)
                     Text("نمره نیست؛ هر هفته با هفته قبلش مقایسه می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                GuideButton(Guides.progress)
+                GuideInfoButton(Guides.progress, list)
             }
         }
         item {
-            InfoCard("پایبندی هفتگی") {
+            InfoCard("پایبندی هفتگی", Modifier.guideTarget("progress_weekly")) {
                 if (series.isEmpty()) {
                     Text("بعد از چند روز ثبت وعده و تمرین، نمودارت اینجا ساخته می‌شود.")
                 } else {
@@ -100,7 +103,7 @@ fun ProgressTab(dashboard: Dashboard) {
             }
         }
         item {
-            InfoCard("وزن") {
+            InfoCard("وزن", Modifier.guideTarget("progress_weight")) {
                 if (weights.isEmpty()) {
                     Text("وزن را در گزارش روزانه وارد کن تا روندش را ببینی.")
                 } else {
@@ -165,14 +168,9 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     val canPinWidget = remember {
         android.os.Build.VERSION.SDK_INT >= 26 && android.appwidget.AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
     }
-    var widgetGuide by rememberSaveable { mutableStateOf(false) }
-    if (widgetGuide) {
-        GuideDialog(Guides.widget) {
-            Guides.markSeen(context, Guides.widget)
-            widgetGuide = false
-            pinWidget(context)
-        }
-    }
+    val guides = LocalGuides.current
+    val list = rememberLazyListState()
+    GuideOnFirstVisit(Guides.me, list)
     fun buy() {
         if (!state.online) {
             state.message = UiMessage(com.pooriapm.momentum.data.persianError("offline", com.pooriapm.momentum.data.ErrorKind.Offline))
@@ -189,30 +187,31 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
         }
     }
 
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(state = list, contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(dashboard.profile.displayName, style = MaterialTheme.typography.headlineSmall)
                     Text(state.api.session?.email.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                GuideButton(Guides.me)
+                GuideInfoButton(Guides.me, list)
             }
         }
-        item { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) }
+        item { Box(Modifier.guideTarget("me_membership")) { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) } }
         item {
-            SettingsGroup {
+            SettingsGroup(Modifier.guideTarget("me_settings")) {
                 SettingsRow(Icons.Outlined.Tune, "ترجیحات برنامه", last = !canPinWidget) { editing = true }
                 if (canPinWidget) {
                     SettingsRow(Icons.Outlined.Widgets, "افزودن ویجت به صفحه اصلی", last = true) {
                         // The first time, the widget's guide comes first; adding follows when it closes.
-                        if (Guides.seen(context, Guides.widget)) pinWidget(context) else widgetGuide = true
+                        if (Guides.seen(context, Guides.widget) || guides == null) pinWidget(context)
+                        else guides.start(Guides.widget) { pinWidget(context) }
                     }
                 }
             }
         }
-        item { SettingsGroup { LiteModeRow(state) } }
-        item { ReminderSettingsCard(state) }
+        item { SettingsGroup(Modifier.guideTarget("me_lite")) { LiteModeRow(state) } }
+        item { Box(Modifier.guideTarget("me_reminders")) { ReminderSettingsCard(state) } }
         item {
             SettingsGroup {
                 SettingsRow(Icons.Outlined.HealthAndSafety, "مرز ایمنی") { open("/safety", "مرز ایمنی") }
@@ -342,10 +341,10 @@ private fun BuyLabel(buying: Boolean, label: String) {
 
 /** iOS-style grouped list: one rounded card with thin dividers between rows. */
 @Composable
-private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) { Column(content = content) }
 }
 

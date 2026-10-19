@@ -136,71 +136,74 @@ private fun ShoppingSheet(state: AppState, plan: Plan, today: String, onDismiss:
         containerColor = glow.base,
         dragHandle = null,
     ) {
-        Box(Modifier.fillMaxWidth()) {
-            Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
-            Column(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("فهرست خرید", style = MaterialTheme.typography.headlineSmall)
-                            Text(
-                                "${jalaliLabel(window.start.coerceAtLeast(today))} تا ${jalaliLabel(window.end)} · برای یک نفر",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        GuideButton(Guides.shopping)
-                        IconButton(onClick = { share(context, toBuy) }, enabled = toBuy.isNotEmpty()) {
-                            Icon(Icons.Rounded.Share, contentDescription = "اشتراک‌گذاری فهرست", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    LiquidSelector(count = 2, selected = scopeIndex, onSelect = { scopeIndex = it }, backdrop = backdrop, height = 48.dp) { i ->
-                        Text(if (i == 0) "هفته خرید" else "تا پایان برنامه", style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface)
-                    }
-                    Text(
-                        when {
-                            lines.isEmpty() -> "برای این بازه خریدی لازم نیست."
-                            toBuy.isEmpty() -> "همه چیز این بازه را داری ✓"
-                            scope == ShoppingScope.Week -> "${toBuy.size.fa()} قلم مانده · با تیک زدن، همان مقدار از خرید ماه هم کم می‌شود."
-                            else -> "${toBuy.size.fa()} قلم مانده · خرید هفتگی‌ات از این مقدارها کم شده است."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                LazyColumn(
-                    Modifier.fillMaxWidth().heightIn(max = 520.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    items(toBuy, key = { "buy-" + it.key }) { line ->
-                        Column(Modifier.animateItem()) {
-                            ShoppingRow(line, checked = false, busy = line.key in state.shoppingBusy) { state.buyShopping(line, scope) }
-                            HorizontalDivider(Modifier.padding(start = 52.dp, end = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        }
-                    }
-                    if (covered.isNotEmpty()) {
-                        item(key = "covered-header") {
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showCovered = !showCovered }.padding(horizontal = 8.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text("خریده‌شده (${covered.size.fa()})", style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                                Icon(if (showCovered) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+GuideHost(Modifier.fillMaxWidth()) {
+            GuideOnFirstVisit(Guides.shopping)
+            Box(Modifier.fillMaxWidth()) {
+                Box(Modifier.matchParentSize().glassSource(backdrop).hueBackground(glow))
+                Column(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("فهرست خرید", style = MaterialTheme.typography.headlineSmall)
+                                Text(
+                                    "${jalaliLabel(window.start.coerceAtLeast(today))} تا ${jalaliLabel(window.end)} · برای یک نفر",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            GuideInfoButton(Guides.shopping)
+                            IconButton(onClick = { share(context, toBuy) }, enabled = toBuy.isNotEmpty(), modifier = Modifier.guideTarget("shop_share")) {
+                                Icon(Icons.Rounded.Share, contentDescription = "اشتراک‌گذاری فهرست", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        items(covered, key = { "covered-" + it.key }) { line ->
-                            AnimatedVisibility(showCovered, modifier = Modifier.animateItem()) {
-                                ShoppingRow(line, checked = true, busy = line.key in state.shoppingBusy) { state.unbuyShopping(line) }
+                        LiquidSelector(count = 2, selected = scopeIndex, onSelect = { scopeIndex = it }, backdrop = backdrop, height = 48.dp, modifier = Modifier.guideTarget("shop_scope")) { i ->
+                            Text(if (i == 0) "هفته خرید" else "تا پایان برنامه", style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Text(
+                            when {
+                                lines.isEmpty() -> "برای این بازه خریدی لازم نیست."
+                                toBuy.isEmpty() -> "همه چیز این بازه را داری ✓"
+                                scope == ShoppingScope.Week -> "${toBuy.size.fa()} قلم مانده · با تیک زدن، همان مقدار از خرید ماه هم کم می‌شود."
+                                else -> "${toBuy.size.fa()} قلم مانده · خرید هفتگی‌ات از این مقدارها کم شده است."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxWidth().heightIn(max = 520.dp).guideTarget("shop_list"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        items(toBuy, key = { "buy-" + it.key }) { line ->
+                            Column(Modifier.animateItem()) {
+                                ShoppingRow(line, checked = false, busy = line.key in state.shoppingBusy) { state.buyShopping(line, scope) }
+                                HorizontalDivider(Modifier.padding(start = 52.dp, end = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                        if (covered.isNotEmpty()) {
+                            item(key = "covered-header") {
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showCovered = !showCovered }.padding(horizontal = 8.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("خریده‌شده (${covered.size.fa()})", style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                    Icon(if (showCovered) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            items(covered, key = { "covered-" + it.key }) { line ->
+                                AnimatedVisibility(showCovered, modifier = Modifier.animateItem()) {
+                                    ShoppingRow(line, checked = true, busy = line.key in state.shoppingBusy) { state.unbuyShopping(line) }
+                                }
                             }
                         }
                     }
+                    Spacer(Modifier.navigationBarsPadding().height(12.dp))
                 }
-                Spacer(Modifier.navigationBarsPadding().height(12.dp))
-            }
+}
         }
     }
 }

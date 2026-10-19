@@ -1,5 +1,6 @@
 package com.pooriapm.momentum.ui
 
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -79,7 +80,9 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
     val next = day.meals.firstOrNull { it.completionStatus == "planned" }
 
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val list = rememberLazyListState()
+    GuideOnFirstVisit(Guides.home, list)
+    LazyColumn(state = list, contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -89,13 +92,13 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                GuideButton(Guides.home)
+                GuideInfoButton(Guides.home, list)
             }
         }
-        item { StreakCard(dashboard) }
-        item { TargetCard(eaten, day.targets.calories, day.targets.proteinG, day.targets.carbsG, day.targets.fatG, done.size, day.meals.size) }
+        item { Box(Modifier.guideTarget("home_streak")) { StreakCard(dashboard) } }
+        item { Box(Modifier.guideTarget("home_targets")) { TargetCard(eaten, day.targets.calories, day.targets.proteinG, day.targets.carbsG, day.targets.fatG, done.size, day.meals.size) } }
         item {
-            ElevatedCard(Modifier.fillMaxWidth()) {
+            ElevatedCard(Modifier.fillMaxWidth().guideTarget("home_next")) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("قدم بعدی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(
@@ -109,15 +112,15 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
                 }
             }
         }
-        item { WaterCard(state, (day.targets.waterMl ?: 2200.0).toInt()) }
+        item { Box(Modifier.guideTarget("home_water")) { WaterCard(state, (day.targets.waterMl ?: 2200.0).toInt()) } }
         // The workout has its own section above the meals, so it is not lost at the end of the list.
         item { Text("تمرین امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
-        day.workout?.let { workout -> item { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } }
+        day.workout?.let { workout -> item { Box(Modifier.guideTarget("home_workout")) { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } } }
             ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
         item { PlanEndingCard(state, dashboard) { prefsOpen = true } }
-        item { CheckinCard(dashboard.checkin != null) { checkinOpen = true } }
+        item { Box(Modifier.guideTarget("home_checkin")) { CheckinCard(dashboard.checkin != null) { checkinOpen = true } } }
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp).guideTarget("home_meals"), verticalAlignment = Alignment.CenterVertically) {
                 Text("وعده‌های امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 Row(
                     Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button) { eatingOut = true }

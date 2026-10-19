@@ -399,41 +399,44 @@ private val DefaultTips = listOf(
 fun EatingOutSheet(tips: List<RestaurantTip>, onDismiss: () -> Unit) {
     val list = tips.ifEmpty { DefaultTips }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 20.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BouncingPlate(Modifier.size(44.dp))
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("امروز بیرون غذا می‌خوری؟", style = MaterialTheme.typography.headlineSmall)
-                    Text("چند انتخاب ساده که برنامه‌ات را خراب نمی‌کند.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+GuideHost(Modifier.fillMaxWidth()) {
+            GuideOnFirstVisit(Guides.eatingOut)
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 20.dp).navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BouncingPlate(Modifier.size(44.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("امروز بیرون غذا می‌خوری؟", style = MaterialTheme.typography.headlineSmall)
+                        Text("چند انتخاب ساده که برنامه‌ات را خراب نمی‌کند.", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    GuideInfoButton(Guides.eatingOut)
                 }
-                GuideButton(Guides.eatingOut)
-            }
-            list.forEachIndexed { i, tip ->
-                val still = LocalPerf.current.reduceMotion
-                val appear = remember { Animatable(if (still) 1f else 0f) }
-                LaunchedEffect(Unit) { if (!still) appear.animateTo(1f, tween(320, delayMillis = 80 * i, easing = FastOutSlowInEasing)) }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth().scale(0.94f + 0.06f * appear.value),
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(tip.title, style = MaterialTheme.typography.titleMedium)
-                        tip.orderInstructions.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-                        tip.estimatedNutrition?.let {
-                            Text("حدود ${it.calories.faRounded()} کالری · پروتئین ${it.proteinG.faRounded()}",
-                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                list.forEachIndexed { i, tip ->
+                    val still = LocalPerf.current.reduceMotion
+                    val appear = remember { Animatable(if (still) 1f else 0f) }
+                    LaunchedEffect(Unit) { if (!still) appear.animateTo(1f, tween(320, delayMillis = 80 * i, easing = FastOutSlowInEasing)) }
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.guideTarget("eat_tips") else Modifier).scale(0.94f + 0.06f * appear.value),
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(tip.title, style = MaterialTheme.typography.titleMedium)
+                            tip.orderInstructions.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+                            tip.estimatedNutrition?.let {
+                                Text("حدود ${it.calories.faRounded()} کالری · پروتئین ${it.proteinG.faRounded()}",
+                                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }
+                Text("بعد از غذا، وعده را در «امروز» تیک بزن یا ردش کن تا حسابت درست بماند.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("بعد از غذا، وعده را در «امروز» تیک بزن یا ردش کن تا حسابت درست بماند.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+}
     }
 }
 

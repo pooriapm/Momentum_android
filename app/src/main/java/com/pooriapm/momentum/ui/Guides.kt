@@ -1,62 +1,28 @@
 package com.pooriapm.momentum.ui
 
 import android.content.Context
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DoNotDisturbOn
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Healing
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.MonitorWeight
-import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.PieChart
-import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Restaurant
-import androidx.compose.material.icons.outlined.RestaurantMenu
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.ShoppingBasket
-import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.TouchApp
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material.icons.outlined.Widgets
-import androidx.compose.material.icons.outlined.WorkspacePremium
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material.icons.outlined.ArrowCircleLeft
-import androidx.compose.material.icons.outlined.Mood
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,152 +31,129 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.launch
 
-data class GuideStep(val icon: ImageVector, val title: String, val text: String)
+/** One tooltip: what to light up ([target], a key set with [guideTarget]) and what to say about it. */
+data class GuideStep(
+    val title: String,
+    val text: String,
+    val target: String? = null,
+    /** For targets inside a LazyColumn: the item to scroll to when it is not on screen yet. */
+    val item: Int? = null,
+)
 
-/** A short tour of one screen: what it is for and how to use it, one step per page. */
+/** A tour of one screen. Steps without a target are shown in the middle, over the dimmed screen. */
 data class Guide(val id: String, val title: String, val steps: List<GuideStep>)
 
 object Guides {
-    val home = Guide("home", "صفحه امروز", listOf(
-        GuideStep(Icons.Outlined.TaskAlt, "روز تو در یک نگاه",
-            "هر روز با این صفحه شروع کن: همه‌ی کارهای امروز، از وعده‌ها تا آب و تمرین، همین‌جاست."),
-        GuideStep(Icons.Outlined.LocalFireDepartment, "زنجیره روزها",
-            "هر روزی که حداقل یک وعده را ثبت کنی، شعله روشن می‌ماند و زنجیره‌ات یک روز بلندتر می‌شود."),
-        GuideStep(Icons.Outlined.PieChart, "کالری و پروتئین",
-            "کارت زعفرانی نشان می‌دهد چقدر از هدف امروز را خورده‌ای. با هر تیک وعده، خودش به‌روز می‌شود."),
-        GuideStep(Icons.Outlined.ArrowCircleLeft, "قدم بعدی",
-            "همیشه می‌گوید الان چه کاری مانده: وعده‌ی بعدی، تمرین یا اینکه روزت کامل شده."),
-        GuideStep(Icons.Outlined.WaterDrop, "آب امروز",
-            "با + و − لیوان‌ها را پر یا خالی کن. هر لیوان ۲۵۰ میلی‌لیتر است و هدف روزت را برنامه تعیین کرده."),
-        GuideStep(Icons.Outlined.FitnessCenter, "تمرین امروز",
-            "روی هر حرکت بزن تا انیمیشن و روش انجامش را ببینی. با «شروع تمرین» ست‌ها را قدم‌به‌قدم ثبت کن."),
-        GuideStep(Icons.Outlined.CheckCircle, "ثبت وعده‌ها",
-            "وقتی وعده‌ای را خوردی تیکش را بزن؛ اگر نخوردی «رد کردن». روی خود وعده بزن تا مواد، طرز تهیه و گزینه‌های دیگرش را ببینی."),
+    val home = Guide("home", "امروز", listOf(
+        GuideStep("صفحه امروز", "هر روز از اینجا شروع کن: همه‌ی کارهای امروزت همین‌جاست. چند قسمت مهمش را با هم ببینیم."),
+        GuideStep("زنجیره روزها", "هر روزی که حداقل یک وعده را ثبت کنی، شعله روشن می‌ماند و زنجیره‌ات بلندتر می‌شود.", "home_streak", 1),
+        GuideStep("کالری و درشت‌مغذی‌ها", "نشان می‌دهد چقدر از هدف امروز را خورده‌ای. با هر تیک وعده، خودش به‌روز می‌شود.", "home_targets", 2),
+        GuideStep("قدم بعدی", "همیشه می‌گوید الان چه کاری مانده: وعده‌ی بعدی یا تمرین.", "home_next", 3),
+        GuideStep("آب امروز", "با + و − لیوان‌ها را پر کن. هر لیوان ۲۵۰ میلی‌لیتر است.", "home_water", 4),
+        GuideStep("تمرین امروز", "روی هر حرکت بزن تا انیمیشن و روش انجامش را ببینی. با «شروع تمرین» ست‌ها را ثبت کن.", "home_workout", 6),
+        GuideStep("گزارش روزانه", "هر روز یک دقیقه حال، خواب و وزنت را ثبت کن؛ برنامه‌ی ماه بعد بر اساس آن ساخته می‌شود.", "home_checkin", 8),
+        GuideStep("وعده‌ها", "وقتی خوردی تیک بزن، اگر نخوردی «رد کردن». روی وعده بزن تا مواد و گزینه‌های دیگرش را ببینی. بیرون غذا می‌خوری؟ دکمه‌ی کنار عنوان را بزن.", "home_meals", 9),
     ))
 
-    val plan = Guide("plan", "برنامه ماه", listOf(
-        GuideStep(Icons.Outlined.CalendarMonth, "سی روز، یکی‌یکی",
-            "دایره نشان می‌دهد روز چندم از برنامه را می‌بینی. نقطه‌ی روی دایره جای امروز است."),
-        GuideStep(Icons.Outlined.TouchApp, "رفتن بین روزها",
-            "با فلش‌های دو طرف دایره به روزهای قبل و بعد برو تا وعده‌ها و تمرین آن روز را ببینی. تیک زدن فقط برای امروز است."),
-        GuideStep(Icons.Outlined.ShoppingBasket, "فهرست خرید",
-            "از کارت بالای صفحه فهرست خرید را باز کن؛ از روی همین برنامه ساخته می‌شود."),
-        GuideStep(Icons.Outlined.History, "برنامه‌های قبلی",
-            "ماه‌های قبلی‌ات هم اینجا می‌مانند تا ببینی از کجا شروع کرده‌ای."),
+    val plan = Guide("plan", "برنامه", listOf(
+        GuideStep("روزهای برنامه", "دایره نشان می‌دهد روز چندم از سی روز را می‌بینی و نقطه‌اش جای امروز است. با فلش‌ها بین روزها برو.", "plan_days", 2),
+        GuideStep("فهرست خرید", "مواد وعده‌های برنامه، با مقدار دقیق، اینجا جمع شده است.", "plan_shopping", 1),
+        GuideStep("برنامه‌های قبلی", "ماه‌های قبلی‌ات هم اینجا می‌مانند.", "plan_history", 4),
     ))
 
     val progress = Guide("progress", "پیشرفت", listOf(
-        GuideStep(Icons.Outlined.Insights, "نمره نیست، روند است",
-            "اینجا هر هفته با هفته‌ی قبلش مقایسه می‌شود: چند وعده و چند تمرین را انجام داده‌ای."),
-        GuideStep(Icons.Outlined.MonitorWeight, "نمودار وزن",
-            "وزنت را در «گزارش روزانه» وارد کن تا نمودار ۳۰ روزه ساخته شود. خط‌چین، وزن هدف توست."),
-        GuideStep(Icons.Outlined.TaskAlt, "صبور باش",
-            "وزن روزبه‌روز بالا و پایین می‌رود؛ جهت کلی نمودار در چند هفته مهم است، نه یک روز."),
+        GuideStep("پایبندی هفتگی", "هر هفته با هفته‌ی قبلش مقایسه می‌شود: چند وعده و چند تمرین انجام داده‌ای. نمره نیست، روند است.", "progress_weekly", 1),
+        GuideStep("نمودار وزن", "وزنت را در «گزارش روزانه» وارد کن تا نمودار ۳۰ روزه ساخته شود. خط‌چین وزن هدف توست.", "progress_weight", 2),
     ))
 
     val me = Guide("me", "حساب من", listOf(
-        GuideStep(Icons.Outlined.WorkspacePremium, "عضویت",
-            "روزهای باقی‌مانده‌ی عضویتت اینجاست و از همین‌جا می‌توانی آن را از کافه‌بازار تمدید کنی."),
-        GuideStep(Icons.Outlined.Tune, "ترجیحات برنامه",
-            "غذاهایی که دوست نداری، حساسیت‌ها و روزها و ساعت تمرین را عوض کن تا برنامه‌ی بعدی دقیق‌تر شود."),
-        GuideStep(Icons.Outlined.NotificationsActive, "یادآوری‌ها",
-            "یادآوری وعده‌ها و تمرین را روشن کن تا سر وقت خبرت کنیم."),
-        GuideStep(Icons.Outlined.Speed, "حالت سبک",
-            "اگر گوشی‌ات کند است یا باتری کم داری، حالت سبک جلوه‌ها را کم می‌کند تا برنامه روان‌تر باشد."),
+        GuideStep("عضویت", "روزهای باقی‌مانده‌ی عضویتت اینجاست و از همین‌جا تمدیدش می‌کنی.", "me_membership", 1),
+        GuideStep("ترجیحات و ویجت", "غذاها، حساسیت‌ها و روزهای تمرین را برای ماه بعد عوض کن، یا ویجت را به صفحه‌ی اصلی گوشی اضافه کن.", "me_settings", 2),
+        GuideStep("حالت سبک", "اگر گوشی‌ات کند است، حالت سبک جلوه‌ها را کم می‌کند تا برنامه روان‌تر باشد.", "me_lite", 3),
+        GuideStep("یادآوری‌ها", "یادآوری وعده‌ها و تمرین را روشن کن تا سر وقت خبرت کنیم.", "me_reminders", 4),
     ))
 
     val shopping = Guide("shopping", "فهرست خرید", listOf(
-        GuideStep(Icons.Outlined.ShoppingBasket, "این فهرست چیست؟",
-            "همه‌ی موادی که وعده‌های برنامه‌ات لازم دارند، با مقدار دقیق و برای یک نفر، از روی خود برنامه جمع شده."),
-        GuideStep(Icons.Outlined.CalendarMonth, "هفته یا کل برنامه",
-            "«هفته خرید» فقط چیزهای همین هفته را نشان می‌دهد؛ «تا پایان برنامه» همه‌ی روزهای باقی‌مانده را."),
-        GuideStep(Icons.Outlined.CheckCircle, "تیک بزن",
-            "هر چیزی را خریدی تیک بزن تا به بخش «خریده‌شده» برود. اشتباه زدی؟ از همان بخش برش گردان."),
-        GuideStep(Icons.Outlined.Share, "بفرست برای خرید",
-            "با دکمه‌ی اشتراک بالای صفحه، فهرست مانده را برای کسی که خرید می‌کند بفرست."),
+        GuideStep("فهرست خرید", "همه‌ی مواد وعده‌های برنامه‌ات، با مقدار دقیق و برای یک نفر، از روی خود برنامه جمع شده است."),
+        GuideStep("هفته یا کل برنامه", "«هفته خرید» فقط چیزهای همین هفته است؛ «تا پایان برنامه» همه‌ی روزهای باقی‌مانده.", "shop_scope"),
+        GuideStep("تیک بزن", "هر چیزی را خریدی تیک بزن تا به بخش «خریده‌شده» برود. اشتباه شد؟ از همان‌جا برش گردان.", "shop_list"),
+        GuideStep("بفرست برای خرید", "فهرست مانده را برای کسی که خرید می‌کند بفرست.", "shop_share"),
     ))
 
     val checkin = Guide("checkin", "گزارش روزانه", listOf(
-        GuideStep(Icons.Outlined.EditNote, "این گزارش برای چیست؟",
-            "یک دقیقه وقت می‌گیرد: حال امروزت را ثبت کن تا روندت دیده شود و برنامه‌ی ماه بعد بر اساس آن ساخته شود."),
-        GuideStep(Icons.Outlined.Mood, "امتیاز ۱ تا ۵",
-            "انرژی، حال، گرسنگی و ریکاوری را از ۱ (کم) تا ۵ (عالی) انتخاب کن. جواب درست یا غلط ندارد."),
-        GuideStep(Icons.Outlined.Bedtime, "خواب و درد",
-            "ساعت خواب دیشب را وارد کن. اگر جایی درد دارد، شدتش و جایش را بنویس."),
-        GuideStep(Icons.Outlined.MonitorWeight, "وزن (اختیاری)",
-            "اگر خودت را وزن کردی واردش کن تا در نمودار «پیشرفت» بیاید. برنامه‌ی این ماه با این گزارش عوض نمی‌شود."),
+        GuideStep("گزارش روزانه", "یک دقیقه وقت می‌گیرد. برنامه‌ی این ماه را تغییر نمی‌دهد، ولی برنامه‌ی ماه بعد بر اساس آن ساخته می‌شود."),
+        GuideStep("امتیاز ۱ تا ۵", "انرژی، حال، گرسنگی و ریکاوری را از ۱ (کم) تا ۵ (عالی) بزن. جواب درست یا غلط ندارد.", "checkin_scores"),
+        GuideStep("خواب و درد", "ساعت خواب دیشب را وارد کن. اگر جایی درد دارد، شدت و جایش را بنویس.", "checkin_body"),
+        GuideStep("وزن، اختیاری", "اگر خودت را وزن کردی واردش کن تا در نمودار «پیشرفت» بیاید.", "checkin_weight"),
     ))
 
     val workout = Guide("workout", "اجرای تمرین", listOf(
-        GuideStep(Icons.Outlined.PlayCircle, "تمرین قدم‌به‌قدم",
-            "حرکت‌ها به ترتیب آمده‌اند. روی تصویر یا «راهنما» بزن تا انیمیشن و روش درست هر حرکت را ببینی."),
-        GuideStep(Icons.Outlined.CheckCircle, "ست‌ها را تیک بزن",
-            "بعد از هر ست، دایره‌ی همان ست را بزن. وقتی همه‌ی ست‌ها تیک خوردند، حرکت تمام می‌شود."),
-        GuideStep(Icons.Outlined.Timer, "استراحت خودکار",
-            "با هر تیک، تایمر استراحت خودش شروع می‌شود تا بدانی کی ست بعدی را بزنی."),
-        GuideStep(Icons.Outlined.SwapHoriz, "جایگزین یا رد کردن",
-            "اگر حرکتی برایت ممکن نیست، حرکت جایگزین را انتخاب کن یا با گفتن دلیل ردش کن."),
-        GuideStep(Icons.Outlined.Healing, "درد دارم",
-            "اگر وسط تمرین درد گرفتی، «درد دارم» را بزن و ثبتش کن. به بدنت گوش بده؛ تمرین را متوقف کردن ایرادی ندارد."),
+        GuideStep("حرکت‌ها", "به ترتیب انجامشان بده. روی تصویر یا «راهنما» بزن تا انیمیشن و روش درست حرکت را ببینی.", "run_exercise", 0),
+        GuideStep("ست‌ها را تیک بزن", "بعد از هر ست دایره‌اش را بزن؛ تایمر استراحت خودش شروع می‌شود.", "run_sets", 0),
+        GuideStep("درد دارم", "اگر وسط تمرین درد گرفتی این را بزن و ثبتش کن. توقف تمرین ایرادی ندارد.", "run_pain"),
+        GuideStep("پایان تمرین", "وقتی همه‌ی حرکت‌ها انجام یا رد شدند، تمرین را تمام کن.", "run_finish"),
     ))
 
     val eatingOut = Guide("eating_out", "بیرون غذا می‌خورم", listOf(
-        GuideStep(Icons.Outlined.Restaurant, "مهمانی یا رستوران؟",
-            "اینجا راهنمای سفارش است: در رستوران‌های رایج چه بخوری که به برنامه‌ات نزدیک بماند."),
-        GuideStep(Icons.Outlined.RestaurantMenu, "چطور سفارش بدهی",
-            "هر کارت چند پیشنهاد ساده دارد، مثل نوع نان، سس یا اندازه‌ی پرس، با کالری تقریبی."),
-        GuideStep(Icons.Outlined.CheckCircle, "بعد از غذا",
-            "در صفحه‌ی «امروز» همان وعده را تیک بزن یا رد کن تا حساب روزت درست بماند."),
+        GuideStep("مهمانی یا رستوران؟", "اینجا راهنمای سفارش است: در رستوران‌های رایج چه بخوری که به برنامه‌ات نزدیک بماند."),
+        GuideStep("پیشنهادها", "هر کارت چند پیشنهاد ساده دارد، با کالری تقریبی.", "eat_tips"),
+        GuideStep("بعد از غذا", "در صفحه‌ی «امروز» همان وعده را تیک بزن یا رد کن تا حساب روزت درست بماند."),
     ))
 
     val nextMonth = Guide("next_month", "ماه بعد", listOf(
-        GuideStep(Icons.Outlined.CalendarMonth, "برنامه‌ها ماهانه‌اند",
-            "هر برنامه سی روز است. نزدیک پایان ماه، برنامه‌ی ماه بعد برایت ساخته می‌شود."),
-        GuideStep(Icons.Outlined.EditNote, "یادداشت برای ماه بعد",
-            "هر چیزی که دوست داری ماه بعد فرق کند بنویس، مثلاً «صبحانه سبک‌تر» یا «تمرین کوتاه‌تر»."),
-        GuideStep(Icons.Outlined.Tune, "ترجیحات",
-            "برای تغییرهای بزرگ‌تر مثل حساسیت غذایی یا روزهای تمرین، «ترجیحات برنامه» را عوض کن."),
+        GuideStep("ماه بعد", "هر برنامه سی روز است و نزدیک پایان ماه، برنامه‌ی ماه بعد ساخته می‌شود. یادداشت بگذار یا ترجیحاتت را عوض کن تا ماه بعد بهتر شود.", "next_month", 7),
     ))
 
     val preferences = Guide("preferences", "ترجیحات برنامه", listOf(
-        GuideStep(Icons.Outlined.Tune, "برنامه‌ات را شخصی کن",
-            "اینجا چیزهایی را که برنامه با آن ساخته می‌شود عوض می‌کنی."),
-        GuideStep(Icons.Outlined.DoNotDisturbOn, "حساسیت غذایی",
-            "حساسیت‌ها را دقیق انتخاب کن؛ غذاهایی که آن مواد را دارند در برنامه‌ات نمی‌آیند."),
-        GuideStep(Icons.Outlined.FitnessCenter, "روز و ساعت تمرین",
-            "روزهایی که می‌توانی ورزش کنی، مدت هر جلسه و ساعتش را بگذار تا تمرین‌ها با زندگی‌ات جور شوند."),
-        GuideStep(Icons.Outlined.TaskAlt, "کی اثر می‌کند؟",
-            "بعد از «ذخیره»، تغییرها در برنامه‌ی ماه بعد اعمال می‌شوند؛ برنامه‌ی این ماه همان‌طور می‌ماند."),
+        GuideStep("ترجیحات برنامه", "تغییرهای اینجا در برنامه‌ی ماه بعد اعمال می‌شوند؛ برنامه‌ی این ماه همان‌طور می‌ماند."),
+        GuideStep("حساسیت غذایی", "حساسیت‌ها را دقیق بزن؛ غذاهایی که آن مواد را دارند در برنامه‌ات نمی‌آیند.", "prefs_allergies"),
+        GuideStep("روز و ساعت تمرین", "روزهایی که می‌توانی ورزش کنی، مدت و ساعتش را بگذار.", "prefs_training"),
     ))
 
-    val widget = Guide("widget", "ویجت صفحه اصلی", listOf(
-        GuideStep(Icons.Outlined.Widgets, "برنامه بدون باز کردن اپ",
-            "ویجت وعده‌ی بعدی و آب امروز را روی صفحه‌ی اصلی گوشی نشان می‌دهد."),
-        GuideStep(Icons.Outlined.CheckCircle, "تیک از روی صفحه اصلی",
-            "با ✓ روی ویجت، وعده‌ی بعدی ثبت می‌شود و با + یک لیوان آب اضافه می‌شود؛ وقتی ذخیره می‌شود یک دایره‌ی چرخان می‌بینی."),
-        GuideStep(Icons.Outlined.AddCircleOutline, "اندازه دلخواه",
-            "ویجت را بزرگ یا کوچک کن؛ در هر اندازه طرح خودش را دارد، از یک نوار باریک تا کل روز."),
+    val widget = Guide("widget", "ویجت", listOf(
+        GuideStep("ویجت صفحه اصلی", "وعده‌ی بعدی و آب امروز را بدون باز کردن برنامه روی صفحه‌ی اصلی گوشی می‌بینی."),
+        GuideStep("ثبت از روی ویجت", "با ✓ وعده‌ی بعدی ثبت می‌شود و با + یک لیوان آب اضافه می‌شود."),
+        GuideStep("اندازه دلخواه", "ویجت را بزرگ یا کوچک کن؛ در هر اندازه طرح خودش را دارد."),
     ))
 
     private fun prefs(context: Context) = context.getSharedPreferences("momentum.local", Context.MODE_PRIVATE)
@@ -222,114 +165,206 @@ object Guides {
     }
 }
 
-/**
- * The "!" in a screen's header: opens the screen's guide, and opens it by itself the first time the
- * screen is shown (once per install).
- */
-@Composable
-fun GuideButton(guide: Guide, modifier: Modifier = Modifier, autoShow: Boolean = true) {
-    val context = LocalContext.current
-    var open by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(guide.id) {
-        if (autoShow && !Guides.seen(context, guide)) open = true
+/** The parts of a screen a tour can light up, and the tour now showing over it. */
+@Stable
+class GuideController {
+    internal val targets = mutableStateMapOf<String, Pair<LayoutCoordinates, BringIntoViewRequester>>()
+    internal var tour by mutableStateOf<Tour?>(null)
+
+    internal class Tour(val guide: Guide, val list: LazyListState?, val onDone: () -> Unit)
+
+    fun start(guide: Guide, list: LazyListState? = null, onDone: () -> Unit = {}) {
+        if (tour == null) tour = Tour(guide, list, onDone)
     }
-    val colors = MaterialTheme.colorScheme
+}
+
+val LocalGuides = staticCompositionLocalOf<GuideController?> { null }
+
+/** Marks a part of the screen a tour step can light up. */
+fun Modifier.guideTarget(key: String): Modifier = composed {
+    val controller = LocalGuides.current ?: return@composed this
+    val requester = remember { BringIntoViewRequester() }
+    DisposableEffect(key) { onDispose { controller.targets.remove(key) } }
+    bringIntoViewRequester(requester).onGloballyPositioned { coords ->
+        if (controller.targets[key]?.first !== coords) controller.targets[key] = coords to requester
+    }
+}
+
+/** Runs [guide] by itself the first time this screen appears (once per install). */
+@Composable
+fun GuideOnFirstVisit(guide: Guide, list: LazyListState? = null) {
+    val controller = LocalGuides.current ?: return
+    val context = LocalContext.current
+    LaunchedEffect(guide.id) {
+        if (!Guides.seen(context, guide)) controller.start(guide, list)
+    }
+}
+
+/** The small "i" in a screen's header that replays its tour. */
+@Composable
+fun GuideInfoButton(guide: Guide, list: LazyListState? = null, modifier: Modifier = Modifier) {
+    val controller = LocalGuides.current
     Box(
         modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .border(1.5.dp, colors.primary.copy(alpha = 0.6f), CircleShape)
-            .clickable(role = Role.Button) { open = true }
+            .clickable(role = Role.Button) { controller?.start(guide, list) }
             .semantics { contentDescription = "راهنمای ${guide.title}" },
         contentAlignment = Alignment.Center,
     ) {
-        Text("!", color = colors.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
-    if (open) {
-        GuideDialog(guide) {
-            Guides.markSeen(context, guide)
-            open = false
+}
+
+/**
+ * Hosts tours over [content]: the screen dims, the step's target stays lit in a rounded hole, and
+ * a tooltip beside it explains it, with "next" and "skip". Taps on the screen are blocked meanwhile.
+ */
+@Composable
+fun GuideHost(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val controller = remember { GuideController() }
+    val context = LocalContext.current
+    var host by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    Box(modifier.onGloballyPositioned { host = it }) {
+        CompositionLocalProvider(LocalGuides provides controller) { content() }
+        val tour = controller.tour
+        if (tour != null) {
+            TourOverlay(controller, tour, host) {
+                Guides.markSeen(context, tour.guide)
+                controller.tour = null
+                tour.onDone()
+            }
         }
     }
 }
 
-/** The guide, one step per page with dots, next/previous and "got it". */
 @Composable
-fun GuideDialog(guide: Guide, onDismiss: () -> Unit) {
-    var page by rememberSaveable(guide.id) { mutableIntStateOf(0) }
-    val last = guide.steps.lastIndex
-    val colors = MaterialTheme.colorScheme
+private fun BoxScope.TourOverlay(controller: GuideController, tour: GuideController.Tour, host: LayoutCoordinates?, finish: () -> Unit) {
+    val steps = tour.guide.steps
+    var index by remember(tour) { mutableIntStateOf(0) }
+    var lit by remember(tour) { mutableStateOf(false) }
+    var ready by remember(tour) { mutableStateOf(false) }
+    val density = LocalDensity.current
     val reduceMotion = LocalPerf.current.reduceMotion
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = colors.surface),
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        ) {
-            Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "راهنمای ${guide.title}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = onDismiss) { Text("بستن") }
-                }
-                AnimatedContent(
-                    targetState = page,
-                    transitionSpec = {
-                        if (reduceMotion) EnterTransition.None.togetherWith(ExitTransition.None)
-                        else {
-                            // Forward slides in from the left, as pages turn in right-to-left reading.
-                            val dir = if (targetState > initialState) -1 else 1
-                            (slideInHorizontally(tween(260)) { it / 4 * dir } + fadeIn(tween(260))).togetherWith(fadeOut(tween(120)))
-                        }
-                    },
-                    label = "guide-page",
-                ) { index ->
-                    val step = guide.steps[index]
-                    Column(
-                        Modifier.fillMaxWidth().heightIn(min = 230.dp).padding(top = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Box(
-                            Modifier.size(84.dp).clip(CircleShape).background(colors.primaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(step.icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(40.dp))
-                        }
-                        Text(step.title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-                        Text(
-                            step.text,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colors.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
+    val pad = with(density) { 8.dp.toPx() }
+    val left = remember(tour) { Animatable(0f) }
+    val top = remember(tour) { Animatable(0f) }
+    val right = remember(tour) { Animatable(0f) }
+    val bottom = remember(tour) { Animatable(0f) }
+
+    // Each step: bring its target on screen, measure it, then move the hole there.
+    LaunchedEffect(tour, index) {
+        val step = steps[index]
+        val hostCoords = host
+        var rect: Rect? = null
+        if (step.target != null && hostCoords != null) {
+            if (controller.targets[step.target]?.first?.isAttached != true && step.item != null) {
+                tour.list?.scrollToItem(step.item)
+                repeat(3) { awaitFrame() }
+            }
+            val entry = controller.targets[step.target]
+            if (entry != null && entry.first.isAttached) {
+                fun measure() = hostCoords.localBoundingBoxOf(entry.first, clipBounds = false)
+                var r = measure()
+                // Keep room under the lit part for the tooltip (and above the tab bar).
+                val room = hostCoords.size.height - with(density) { 230.dp.toPx() }
+                if (r.top < 0f || r.bottom > room) {
+                    val list = tour.list
+                    if (list != null && step.item != null) {
+                        list.scrollToItem(step.item)
+                        list.scrollBy(-with(density) { 72.dp.toPx() })
+                    } else {
+                        runCatching { entry.second.bringIntoView() }
                     }
+                    repeat(3) { awaitFrame() }
+                    r = measure()
                 }
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    guide.steps.indices.forEach { i ->
-                        Box(
-                            Modifier
-                                .size(width = if (i == page) 18.dp else 7.dp, height = 7.dp)
-                                .clip(CircleShape)
-                                .background(if (i == page) colors.primary else colors.outlineVariant),
-                        )
+                // A part with nothing to show today (an empty card) is explained in the middle instead.
+                rect = r.takeIf { it.width > 4f && it.height > 4f }
+            }
+        }
+        lit = rect != null
+        if (rect != null) {
+            val spec = tween<Float>(if (reduceMotion || !ready) 0 else 320, easing = FastOutSlowInEasing)
+            launch { left.animateTo(rect.left - pad, spec) }
+            launch { top.animateTo(rect.top - pad, spec) }
+            launch { right.animateTo(rect.right + pad, spec) }
+            launch { bottom.animateTo(rect.bottom + pad, spec) }
+        }
+        ready = true
+    }
+
+    if (!ready) return
+    val scrim = Color.Black.copy(alpha = 0.62f)
+    val ring = MaterialTheme.colorScheme.primary
+    Box(
+        Modifier
+            .matchParentSize()
+            .zIndex(10f)
+            // Swallows every touch, so nothing underneath reacts while the tour is open.
+            .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } },
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            if (!lit) {
+                drawRect(scrim)
+            } else {
+                val hole = RoundRect(
+                    Rect(Offset(left.value, top.value), Size(right.value - left.value, bottom.value - top.value)),
+                    CornerRadius(18.dp.toPx()),
+                )
+                val path = Path().apply { addRoundRect(hole) }
+                clipPath(path, ClipOp.Difference) { drawRect(scrim) }
+                drawPath(path, ring, style = Stroke(2.dp.toPx()))
+            }
+        }
+        val step = steps[index]
+        Tooltip(
+            spot = if (lit) Rect(left.value, top.value, right.value, bottom.value) else null,
+            title = step.title,
+            text = step.text,
+            counter = "${(index + 1).fa()} از ${steps.size.fa()}",
+            last = index == steps.lastIndex,
+            onNext = { if (index < steps.lastIndex) index++ else finish() },
+            onSkip = finish,
+        )
+    }
+}
+
+/** The bubble: below the lit part when there is room, otherwise above it, or centred without one. */
+@Composable
+private fun Tooltip(spot: Rect?, title: String, text: String, counter: String, last: Boolean, onNext: () -> Unit, onSkip: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
+    Layout(
+        content = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            ) {
+                Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(counter, style = MaterialTheme.typography.labelMedium, color = colors.outline)
+                        Spacer(Modifier.weight(1f))
+                        if (!last) TextButton(onClick = onSkip) { Text("رد کردن") }
+                        Button(onClick = onNext) { Text(if (last) "متوجه شدم" else "بعدی") }
                     }
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    if (page > 0) TextButton(onClick = { page-- }) { Text("قبلی") }
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = { if (page < last) page++ else onDismiss() }) {
-                        Text(if (page < last) "بعدی" else "متوجه شدم")
-                    }
-                    Spacer(Modifier.width(2.dp))
                 }
             }
+        },
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+    ) { measurables, constraints ->
+        val card = measurables.first().measure(Constraints(maxWidth = constraints.maxWidth, maxHeight = constraints.maxHeight))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            val y = when {
+                spot == null -> (constraints.maxHeight - card.height) / 2
+                spot.bottom + gap + card.height <= constraints.maxHeight -> spot.bottom.toInt() + gap
+                spot.top - gap - card.height >= 0 -> spot.top.toInt() - gap - card.height
+                else -> (constraints.maxHeight - card.height).coerceAtLeast(0)
+            }
+            card.place(0, y)
         }
     }
 }
