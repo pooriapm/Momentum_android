@@ -79,7 +79,9 @@ fun PlanEndingCard(state: AppState, dashboard: Dashboard, onEditPreferences: () 
                 Text(
                     if (left <= 1) "امروز آخرین روز برنامه این ماه است" else "${left.fa()} روز تا پایان برنامه این ماه",
                     style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
                 )
+                GuideButton(Guides.nextMonth)
             }
             Text(
                 "برنامه ماه بعد بر اساس ترجیحات و گزارش‌های روزانه‌ات ساخته می‌شود. اگر چیزی باید عوض شود، الان بگو.",
@@ -122,7 +124,10 @@ fun NextCycleNoteSheet(state: AppState, onDismiss: () -> Unit) {
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("یادداشت برای ماه بعد", style = MaterialTheme.typography.headlineSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("یادداشت برای ماه بعد", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                GuideButton(Guides.nextMonth, autoShow = false)
+            }
             Text(
                 "مثلاً «شام‌ها سبک‌تر باشد» یا «جمعه‌ها تمرین نمی‌کنم». موقع ساخت برنامه بعدی در نظر گرفته می‌شود.",
                 style = MaterialTheme.typography.bodySmall,

@@ -150,6 +150,7 @@ private fun Running(state: AppState, session: WorkoutSession, onClose: () -> Uni
                 Text("${done.fa()} از ${session.exercises.size.fa()} حرکت", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            GuideButton(Guides.workout)
             TextButton(onClick = { painOpen = true }) {
                 Icon(Icons.Outlined.Healing, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))

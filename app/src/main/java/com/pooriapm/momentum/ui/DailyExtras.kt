@@ -406,11 +406,12 @@ fun EatingOutSheet(tips: List<RestaurantTip>, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BouncingPlate(Modifier.size(44.dp))
                 Spacer(Modifier.width(12.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text("امروز بیرون غذا می‌خوری؟", style = MaterialTheme.typography.headlineSmall)
                     Text("چند انتخاب ساده که برنامه‌ات را خراب نمی‌کند.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                GuideButton(Guides.eatingOut)
             }
             list.forEachIndexed { i, tip ->
                 val still = LocalPerf.current.reduceMotion

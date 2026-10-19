@@ -150,6 +150,7 @@ private fun ShoppingSheet(state: AppState, plan: Plan, today: String, onDismiss:
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        GuideButton(Guides.shopping)
                         IconButton(onClick = { share(context, toBuy) }, enabled = toBuy.isNotEmpty()) {
                             Icon(Icons.Rounded.Share, contentDescription = "اشتراک‌گذاری فهرست", tint = MaterialTheme.colorScheme.primary)
                         }

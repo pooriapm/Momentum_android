@@ -190,7 +190,8 @@ fun PreferencesScreen(state: AppState, onClose: () -> Unit) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = "بستن") }
-                    Text("ترجیحات برنامه", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 4.dp))
+                    Text("ترجیحات برنامه", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+                    GuideButton(Guides.preferences, Modifier.padding(end = 12.dp))
                 }
                 val p = prefs
                 when {

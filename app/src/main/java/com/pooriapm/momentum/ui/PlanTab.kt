@@ -2,6 +2,7 @@ package com.pooriapm.momentum.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,9 +36,14 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
 
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text(plan.name, style = MaterialTheme.typography.headlineSmall)
-            Text("${jalaliLabel(plan.validFrom)} تا ${jalaliLabel(plan.validTo)}", style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(plan.name, style = MaterialTheme.typography.headlineSmall)
+                    Text("${jalaliLabel(plan.validFrom)} تا ${jalaliLabel(plan.validTo)}", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                GuideButton(Guides.plan)
+            }
         }
         item { ShoppingEntry(state, plan, dashboard.localDate) }
         item(key = "navigator") {

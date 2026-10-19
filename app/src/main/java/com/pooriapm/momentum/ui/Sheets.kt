@@ -2,6 +2,7 @@ package com.pooriapm.momentum.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -134,7 +135,10 @@ fun CheckinSheet(state: AppState, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() }
-                Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("گزارش امروز", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    GuideButton(Guides.checkin)
+                }
                 ScoreQuestion("انرژی", "خیلی کم", "عالی", energy, backdrop) { energy = it }
                 ScoreQuestion("حال‌وحوصله", "بد", "خیلی خوب", mood, backdrop) { mood = it }
                 ScoreQuestion("گرسنگی", "اصلاً", "خیلی زیاد", hunger, backdrop) { hunger = it }

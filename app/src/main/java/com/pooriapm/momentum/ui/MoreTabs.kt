@@ -78,8 +78,13 @@ fun ProgressTab(dashboard: Dashboard) {
     val weights = dashboard.recentCheckins.filter { it.weightKg != null }.sortedBy { it.localDate }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("روندی که ساخته‌ای", style = MaterialTheme.typography.headlineSmall)
-            Text("نمره نیست؛ هر هفته با هفته قبلش مقایسه می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("روندی که ساخته‌ای", style = MaterialTheme.typography.headlineSmall)
+                    Text("نمره نیست؛ هر هفته با هفته قبلش مقایسه می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                GuideButton(Guides.progress)
+            }
         }
         item {
             InfoCard("پایبندی هفتگی") {
@@ -160,6 +165,14 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     val canPinWidget = remember {
         android.os.Build.VERSION.SDK_INT >= 26 && android.appwidget.AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
     }
+    var widgetGuide by rememberSaveable { mutableStateOf(false) }
+    if (widgetGuide) {
+        GuideDialog(Guides.widget) {
+            Guides.markSeen(context, Guides.widget)
+            widgetGuide = false
+            pinWidget(context)
+        }
+    }
     fun buy() {
         if (!state.online) {
             state.message = UiMessage(com.pooriapm.momentum.data.persianError("offline", com.pooriapm.momentum.data.ErrorKind.Offline))
@@ -178,9 +191,12 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
 
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(dashboard.profile.displayName, style = MaterialTheme.typography.headlineSmall)
-                Text(state.api.session?.email.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(dashboard.profile.displayName, style = MaterialTheme.typography.headlineSmall)
+                    Text(state.api.session?.email.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                GuideButton(Guides.me)
             }
         }
         item { MembershipCard(dashboard.entitlementUsage?.entitlement, buying, ::buy) }
@@ -189,8 +205,8 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
                 SettingsRow(Icons.Outlined.Tune, "ترجیحات برنامه", last = !canPinWidget) { editing = true }
                 if (canPinWidget) {
                     SettingsRow(Icons.Outlined.Widgets, "افزودن ویجت به صفحه اصلی", last = true) {
-                        val manager = android.appwidget.AppWidgetManager.getInstance(context)
-                        manager.requestPinAppWidget(android.content.ComponentName(context, com.pooriapm.momentum.widget.MomentumWidgetReceiver::class.java), null, null)
+                        // The first time, the widget's guide comes first; adding follows when it closes.
+                        if (Guides.seen(context, Guides.widget)) pinWidget(context) else widgetGuide = true
                     }
                 }
             }
@@ -331,6 +347,11 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth(),
     ) { Column(content = content) }
+}
+
+private fun pinWidget(context: android.content.Context) {
+    val manager = android.appwidget.AppWidgetManager.getInstance(context)
+    manager.requestPinAppWidget(android.content.ComponentName(context, com.pooriapm.momentum.widget.MomentumWidgetReceiver::class.java), null, null)
 }
 
 /** Lite mode: automatic (weak phone or battery saver), always on, or off. */

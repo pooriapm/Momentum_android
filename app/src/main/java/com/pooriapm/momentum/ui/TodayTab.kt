@@ -81,11 +81,16 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
 
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("سلام، ${dashboard.profile.displayName}", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${dayTitle(day.title)?.let { " · $it" } ?: ""}",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("سلام، ${dashboard.profile.displayName}", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${dayTitle(day.title)?.let { " · $it" } ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                GuideButton(Guides.home)
+            }
         }
         item { StreakCard(dashboard) }
         item { TargetCard(eaten, day.targets.calories, day.targets.proteinG, day.targets.carbsG, day.targets.fatG, done.size, day.meals.size) }
