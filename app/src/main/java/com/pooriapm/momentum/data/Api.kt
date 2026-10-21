@@ -92,7 +92,9 @@ class Api(context: Context) {
         token: String?,
         headers: Map<String, String>,
     ): JsonElement = withContext(Dispatchers.IO) {
-        if (!base.startsWith("https://") || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
+        // Debug builds may also use a local test server on the emulator's host (e.g. the API proxy).
+        val local = BuildConfig.DEBUG && base.startsWith("http://10.0.2.2:")
+        if (!(base.startsWith("https://") || local) || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
             throw ApiException("not_configured", persianError("not_configured"), ErrorKind.NotConfigured, retryable = false)
         }
         val request = Request.Builder()
