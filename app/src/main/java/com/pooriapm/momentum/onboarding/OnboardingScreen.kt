@@ -492,10 +492,6 @@ private fun PlanBuildScreen(state: OnboardingState) {
             BuildPhase.Ready -> {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(56.dp))
                 Text("برنامه ۳۰ روزه‌ات آماده است", style = MaterialTheme.typography.headlineSmall)
-                if (state.usedStarterPlan) {
-                    Text("ساخت هوشمند فعلاً خاموش است؛ یک برنامهٔ شروع از کاتالوگ غذا و تمرین برایت فعال شد. ماه بعد از روند خودت ساخته می‌شود.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 Button(onClick = state::done, modifier = Modifier.fillMaxWidth()) { Text("رفتن به امروز") }
             }
             BuildPhase.Waiting -> {

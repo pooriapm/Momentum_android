@@ -50,7 +50,6 @@ class OnboardingState(
     private var generationKey: String? = null
 
     /** AI generation was off, so the catalog starter plan was activated instead. */
-    var usedStarterPlan by mutableStateOf(false)
         private set
 
     val visibleSteps: List<Step> get() = Step.entries.filter { isVisible(it, answers) }
@@ -191,7 +190,7 @@ class OnboardingState(
         phase = BuildPhase.Generating
         phaseMessage = null
         try {
-            usedStarterPlan = api.startMonthlyPlan(key)
+            api.startMonthlyPlan(key)
             // The plan is imported asynchronously; wait until it shows on the dashboard.
             // A dropped connection while waiting is not a failure: keep polling.
             repeat(48) {

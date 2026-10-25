@@ -172,10 +172,10 @@ fun NextCycleNoteSheet(state: AppState, onDismiss: () -> Unit) {
     }
 }
 
-/** Past monthly plans, newest first; the current one is marked. Shown only once there are two. */
+/** Past monthly plans, newest first; the current one is marked. Shown from [minItems] plans on. */
 @Composable
-fun PlanHistoryCard(history: List<PlanHistoryItem>) {
-    if (history.size < 2) return
+fun PlanHistoryCard(history: List<PlanHistoryItem>, minItems: Int = 2) {
+    if (history.size < minItems) return
     var open by rememberSaveable { mutableStateOf(false) }
     val sorted = history.sortedByDescending { it.validFrom }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {

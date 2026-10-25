@@ -175,6 +175,12 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
     val status = meal.completionStatus
     val skipped = status == "skipped"
     val busy = false // changes are instant; the control only blocks taps while saving
+    // Picking another option first shows what it changes (MealChange.kt); nothing is saved until confirmed.
+    var review by remember(meal.slotKey, localDate) { mutableStateOf<com.pooriapm.momentum.data.MealOption?>(null) }
+    val day = state.dashboard?.plan?.let { p -> (listOf(p.day) + p.days).firstOrNull { it.localDate == localDate } }
+    review?.let { target ->
+        if (day != null) MealChangeSheet(state, day, meal, target, onDismiss = { review = null }, onDone = { review = null })
+    }
     val colors = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -236,7 +242,7 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                 OptionStrip(
                     meal = meal,
                     selectable = editable && status == "planned" && !state.mealPending(localDate, meal.slotKey),
-                    onSelect = { state.chooseOption(meal, localDate, it) },
+                    onSelect = { key -> if (key != option?.optionKey) review = meal.options.firstOrNull { it.optionKey == key } },
                 )
             }
         }
@@ -254,7 +260,7 @@ private fun OptionStrip(meal: Meal, selectable: Boolean, onSelect: (String) -> U
     val chosen = meal.chosenOption?.optionKey
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            if (selectable) "${meal.options.size.fa()} گزینه · یکی را انتخاب کن" else "${meal.options.size.fa()} گزینه",
+            if (selectable) "${meal.options.size.fa()} گزینه · برای تغییر غذا بزنید" else "${meal.options.size.fa()} گزینه",
             style = MaterialTheme.typography.labelMedium,
             color = colors.onSurfaceVariant,
         )

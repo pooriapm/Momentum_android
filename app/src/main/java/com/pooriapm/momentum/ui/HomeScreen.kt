@@ -127,16 +127,27 @@ fun HomeScreen(state: AppState, billing: BazaarBilling) {
                         )
                         dashboard == null -> Centered { CircularProgressIndicator() }
                         current == 3 -> MeTab(state, dashboard, billing)
+                        // Progress keeps the history readable after a plan ends.
+                        current == 2 -> ProgressTab(state, dashboard)
                         dashboard.plan == null -> NoPlanTab(state, dashboard)
                         current == 0 -> TodayTab(state, dashboard) { tab = 3 }
-                        current == 1 -> PlanTab(state, dashboard)
-                        else -> ProgressTab(dashboard)
+                        else -> PlanTab(state, dashboard)
                     }
                 }
             }
         }
         }
         GlassTabBar(tabs, tab, { tab = it }, backdrop, Modifier.align(Alignment.BottomCenter))
+        // Re-entry after the plan period ended: one short notice, once per plan. Nothing otherwise.
+        val ended = remember(state.dashboard, state.endedNoticeVersion) { state.planEndedNotice() }
+        ended?.let { plan ->
+            PlanEndedNotice(
+                plan,
+                onReview = { state.planEndedSeen(plan.id); tab = 2 },
+                onHistory = { state.planEndedSeen(plan.id); tab = 0 },
+                onClose = { state.planEndedSeen(plan.id) },
+            )
+        }
     }
 }
 

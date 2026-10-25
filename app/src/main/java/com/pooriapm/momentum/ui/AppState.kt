@@ -142,10 +142,46 @@ class AppState(
 
     private fun planVersionKey(): String? = dashboard?.plan?.let { it.versionId ?: "${it.validFrom}:${it.name}" }
 
+    /** The ended plan to tell the user about once, or null (normal return, or already told). */
+    fun planEndedNotice(): com.pooriapm.momentum.data.PlanHistoryItem? {
+        val ended = dashboard?.let(::endedPlan) ?: return null
+        return ended.takeIf { local?.getBoolean("plan_ended_seen:${it.id}", false) != true }
+    }
+
+    fun planEndedSeen(id: String) {
+        local?.edit()?.putBoolean("plan_ended_seen:$id", true)?.apply()
+        endedNoticeVersion++
+    }
+
+    /** Bumped when the notice is answered, so the screen reads [planEndedNotice] again. */
+    var endedNoticeVersion by mutableStateOf(0)
+        private set
+
+    /** Draft lessons answered correctly (Learning.kt); on this phone only, never sent or used by the plan. */
+    var practised by mutableStateOf(local?.getStringSet("learning_practised", null)?.toSet().orEmpty())
+        private set
+
+    fun markPractised(id: String) {
+        if (id in practised) return
+        practised = practised + id
+        local?.edit()?.putStringSet("learning_practised", practised)?.apply()
+    }
+
+    /** Week-prep tasks marked "prepared" (date|slot|option), per plan version, on this phone. */
+    var prepared by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    fun togglePrepared(key: String) {
+        val version = planVersionKey() ?: return
+        prepared = if (key in prepared) prepared - key else prepared + key
+        local?.edit()?.putStringSet("prepared:$version", prepared)?.apply()
+    }
+
     private fun loadSharedCooks() {
         val version = planVersionKey()
         if (version == sharedCookPlan) return
         sharedCookPlan = version
+        prepared = version?.let { local?.getStringSet("prepared:$it", null)?.toSet() }.orEmpty()
         sharedCooks = version?.let { v ->
             local?.getString("shared_cook:$v", null)?.let { raw ->
                 runCatching { json.decodeFromString(ListSerializer(SharedCook.serializer()), raw) }.getOrNull()
@@ -384,7 +420,10 @@ class AppState(
      * the cached dashboard), the request runs in the background, and on failure that meal alone is
      * put back as it was and the error shown. The day's totals are refreshed after the last change.
      */
-    private fun mutate(localDate: String, slotKey: String, retry: () -> Unit, optimistic: (Meal) -> Meal, block: suspend () -> Unit) {
+    private fun mutate(
+        localDate: String, slotKey: String, retry: () -> Unit, optimistic: (Meal) -> Meal,
+        onSaved: (() -> Unit)? = null, block: suspend () -> Unit,
+    ) {
         val key = "$localDate|$slotKey"
         if (!online) return offlineMessage(retry)
         if (key in pendingMeals) return
@@ -394,6 +433,7 @@ class AppState(
         scope.launch {
             try {
                 block()
+                onSaved?.invoke()
                 syncDashboardSoon()
             } catch (raw: Exception) {
                 // Roll back only this meal; other changes made meanwhile stay.
@@ -452,12 +492,30 @@ class AppState(
         }
     }
 
-    fun chooseOption(meal: Meal, localDate: String, optionKey: String) {
-        // Only a planned meal can switch; the server locks eaten and skipped ones.
-        if (optionKey == meal.chosenOption?.optionKey || meal.completionStatus != "planned") return
-        mutate(localDate, meal.slotKey, { chooseOption(meal, localDate, optionKey) }, { it.copy(selectedOptionKey = optionKey) }) {
-            api.selectMeal(localDate, meal.slotKey, optionKey)
-        }
+    /**
+     * The reviewed meal change: selects [optionKey] and offers to put the previous food back. Undo
+     * only applies while the meal still has the new food and is not logged.
+     */
+    fun changeMeal(meal: Meal, localDate: String, optionKey: String) {
+        val previous = meal.chosenOption ?: return
+        if (optionKey == previous.optionKey || meal.completionStatus != "planned") return
+        val newTitle = meal.options.firstOrNull { it.optionKey == optionKey }?.title ?: return
+        mutate(
+            localDate, meal.slotKey, { changeMeal(meal, localDate, optionKey) }, { it.copy(selectedOptionKey = optionKey) },
+            onSaved = {
+                message = UiMessage("${meal.title}: $newTitle", isError = false, actionLabel = "برگرداندن", action = {
+                    val now = dashboard?.findMeal(localDate, meal.slotKey)
+                    if (now == null || now.chosenOption?.optionKey != optionKey || now.completionStatus != "planned") {
+                        message = UiMessage("این وعده بعد از آن تغییر کرده یا ثبت شده است؛ برگرداندن انجام نشد.")
+                    } else {
+                        mutate(localDate, meal.slotKey, {}, { it.copy(selectedOptionKey = previous.optionKey) },
+                            onSaved = { message = UiMessage("${meal.title} به ${previous.title} برگشت.", isError = false) }) {
+                            api.selectMeal(localDate, meal.slotKey, previous.optionKey)
+                        }
+                    }
+                })
+            },
+        ) { api.selectMeal(localDate, meal.slotKey, optionKey) }
     }
 
     fun saveCheckin(checkin: DailyCheckin, onDone: () -> Unit) {
@@ -601,6 +659,10 @@ class AppState(
         }
     }
 
+    /** Why the last "make my plan" could not start (the generator is off), shown on the no-plan screen. */
+    var planUnavailable by mutableStateOf<String?>(null)
+        private set
+
     /** For accounts that finished setup (maybe on the website) but have no plan yet. */
     fun generatePlan() {
         if (generating) return
@@ -610,19 +672,20 @@ class AppState(
             try {
                 // One key per account and day: retries resume the same job instead of starting another.
                 val key = "android:${api.session?.userId}:${dashboard?.localDate}:generate"
-                val starter = api.startMonthlyPlan(key)
+                planUnavailable = null
+                api.startMonthlyPlan(key)
                 repeat(36) {
                     val next = api.dashboard()
                     dashboard = next
-                    if (next.plan != null) {
-                        if (starter) message = UiMessage("ساخت هوشمند فعلاً خاموش است؛ برنامهٔ شروع از کاتالوگ برایت فعال شد.", isError = false)
-                        return@launch
-                    }
+                    if (next.plan != null) return@launch
                     delay(5000)
                 }
                 message = UiMessage("ساخت برنامه ادامه دارد؛ کمی بعد دوباره سر بزن.", isError = false)
             } catch (raw: Exception) {
-                report(raw.asApi(), ::generatePlan)
+                val error = raw.asApi()
+                // A switched-off generator is a state to show where the button is, not a toast.
+                if (error.kind == ErrorKind.Server && !error.retryable) planUnavailable = error.message
+                else report(error, ::generatePlan)
             } finally {
                 generating = false
             }

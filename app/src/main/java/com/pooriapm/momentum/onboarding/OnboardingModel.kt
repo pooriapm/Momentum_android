@@ -112,8 +112,8 @@ private const val PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
 fun prepareForCompletion(input: Answers): Answers {
     // Fill defaults for anything left blank, so a stepper that shows "0" also sends "0".
     val next = (defaultAnswers + input.filterValues { it.isNotBlank() }).toMutableMap()
-    // The app only offers the Momentum-built plan (no import path), so a choice of "external"
-    // left over from the website would silently block plan creation.
+    // There is only the Momentum-built plan (no import path); a stale "external" choice from an
+    // older website draft is overwritten.
     next["planSource"] = "momentum"
     if (next["goalType"] == "maintenance") next.remove("targetWeightKg")
     else if (next["targetWeightKg"].isNullOrBlank()) next["weightKg"]?.let { next["targetWeightKg"] = it }

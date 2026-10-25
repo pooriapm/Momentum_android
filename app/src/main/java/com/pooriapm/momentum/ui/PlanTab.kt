@@ -50,6 +50,7 @@ fun PlanTab(state: AppState, dashboard: Dashboard) {
             }
         }
         item { Box(Modifier.guideTarget("plan_shopping")) { ShoppingEntry(state, plan, dashboard.localDate) } }
+        item { Box(Modifier.guideTarget("plan_prep")) { WeekPrepEntry(state, plan, dashboard.localDate) } }
         item(key = "navigator") {
             Box(Modifier.guideTarget("plan_days")) { DayNavigator(
                 index = selected.coerceIn(days.indices),

@@ -40,6 +40,10 @@ android {
         // Where exercise animations and the library are served: Supabase storage, unless a debug
         // build points at a local test server (exerciseMediaUrl in momentum.properties).
         buildConfigField("String", "EXERCISE_MEDIA_URL", "\"\"")
+        // Draft learning lessons: never in release builds; debug builds only with learningPreview=true.
+        buildConfigField("boolean", "LEARNING_PREVIEW", "false")
+        // Optional cycle log: never in release builds; debug builds only with cycleTracking=true.
+        buildConfigField("boolean", "CYCLE_PREVIEW", "false")
     }
 
     // Release signing from momentum.properties (keystore and passwords stay out of git). Bazaar only
@@ -57,6 +61,8 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "EXERCISE_MEDIA_URL", momentumValue("exerciseMediaUrl"))
+            buildConfigField("boolean", "LEARNING_PREVIEW", (momentum.getProperty("learningPreview") == "true").toString())
+            buildConfigField("boolean", "CYCLE_PREVIEW", (momentum.getProperty("cycleTracking") == "true").toString())
         }
         release {
             isMinifyEnabled = true

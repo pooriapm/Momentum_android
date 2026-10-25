@@ -18,6 +18,11 @@ bazaarProductId=membership_month
 # python -m http.server 8765 --directory media, then http://10.0.2.2:8765/exercise/v1/
 exerciseMediaUrl=
 
+# Optional, debug builds only: show the draft learning lessons (unreviewed content). Off by default.
+learningPreview=false
+# Optional, debug builds only: the on-device cycle log (own consent, no prediction). Off by default.
+cycleTracking=false
+
 # Release signing (Cafe Bazaar). Create the keystore once with keytool, keep it and its passwords
 # backed up: every future update must be signed with the same key.
 releaseStoreFile=momentum-release.jks

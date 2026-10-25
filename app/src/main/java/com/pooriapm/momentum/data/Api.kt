@@ -477,46 +477,13 @@ class Api(context: Context) {
     }
 
     /**
-     * Starts this month's plan: the AI job when it is available, otherwise the starter plan.
-     * Returns true when the starter plan was used. Same key = same job, so retrying is safe.
+     * Starts this month's plan. Every plan comes from the generator; when it cannot run, the error
+     * is passed on as it is (no stand-in plan). Same key = same job, so retrying is safe.
+     * One call only: every generate call counts against a small hourly limit, so progress is
+     * followed through the dashboard instead.
      */
-    suspend fun startMonthlyPlan(idempotencyKey: String): Boolean = try {
-        startPlanOnce(idempotencyKey)
-    } catch (error: ApiException) {
-        if (error.code != "managed_plan_path_not_selected") throw error
-        // Setup was finished on the website with "I'll bring my own plan". Asking the app for a plan
-        // means the Momentum plan: record that choice the same way the website does, then retry.
-        selectManagedPlanPath("$idempotencyKey:managed")
-        startPlanOnce("$idempotencyKey:m")
-    }
-
-    private suspend fun selectManagedPlanPath(idempotencyKey: String) {
-        val draft = loadDraft() ?: throw ApiException("onboarding_draft_not_found", persianError("onboarding_draft_not_found"), ErrorKind.Conflict)
-        saveDraft(draft.step, draft.values + ("planSource" to "momentum"))
-        // Re-running completion re-reads the draft's planSource into the profile.
-        completeOnboarding(idempotencyKey)
-    }
-
-    private suspend fun startPlanOnce(idempotencyKey: String): Boolean {
-        // One call only: every generate call (polls too) counts against a small hourly limit, so
-        // progress is followed through the dashboard instead.
-        try {
-            requestPlanGeneration(idempotencyKey)
-            return false
-        } catch (error: ApiException) {
-            if (error.code !in AI_UNAVAILABLE_CODES) throw error
-        }
-        // The starter plan is activated at most once per account, so this cannot pile up plans.
-        createStarterPlan("$idempotencyKey:starter")
-        return true
-    }
-
-    /**
-     * Activates the deterministic starter plan (catalog-based, no AI). Used when AI generation is
-     * switched off on the server, so a new user still gets a working month.
-     */
-    suspend fun createStarterPlan(idempotencyKey: String) {
-        function("account-data", buildJsonObject { put("action", "create-starter-plan") }, idempotencyKey)
+    suspend fun startMonthlyPlan(idempotencyKey: String) {
+        requestPlanGeneration(idempotencyKey)
     }
 
     /** Server-side check of a Cafe Bazaar purchase; returns the new membership end. Safe to repeat. */
@@ -531,9 +498,5 @@ class Api(context: Context) {
         private const val MAX_ATTEMPTS = 3
         private const val REFRESH_MARGIN_SECONDS = 120L
 
-        /** AI generation cannot run right now; a user without a plan gets the starter plan instead. */
-        private val AI_UNAVAILABLE_CODES = setOf(
-            "ai_temporarily_disabled", "ai_circuit_open", "ai_circuit_breaker_unavailable", "rate_limit_exceeded",
-        )
     }
 }

@@ -64,14 +64,15 @@ fun kindForStatus(status: Int, code: String): ErrorKind = when {
 
 /** 5xx answers that describe a switched-off feature: repeating the call cannot help. */
 val NON_RETRYABLE_CODES = setOf(
-    "ai_temporarily_disabled", "ai_circuit_open", "PAYMENTS_DISABLED", "not_configured",
+    "ai_temporarily_disabled", "ai_circuit_open", "ai_circuit_breaker_unavailable", "AI_PROVIDER_NOT_CONFIGURED",
+    "PAYMENTS_DISABLED", "not_configured",
     // Per-user limits with long windows (e.g. 3 plans an hour): an immediate retry only burns the quota.
     "rate_limit_exceeded",
 )
 
 private val NO_ACCESS_CODES = setOf(
     "ALPHA_DISABLED", "ALPHA_NOT_INVITED", "PUBLIC_BETA_DISABLED",
-    "entitlement_required", "SUBSCRIPTION_INACTIVE", "PAYMENT_METHOD_REQUIRED", "quota_exceeded",
+    "entitlement_required", "SUBSCRIPTION_INACTIVE", "PAYMENT_METHOD_REQUIRED", "quota_exceeded", "MEMBERSHIP_REQUIRED",
 )
 
 /** Persian copy for server codes; falls back to a message per [ErrorKind]. */
@@ -118,8 +119,12 @@ fun persianError(code: String, kind: ErrorKind? = null): String = when (code) {
     "invalid_water_ml" -> "مقدار آب معتبر نیست."
     "timezone_mismatch" -> "منطقه زمانی گوشی با حسابت فرق دارد؛ صفحه را تازه کن."
     "water_save_failed" -> "آب الان ذخیره نشد؛ روی گوشی نگه داشتیم و بعداً می‌فرستیم."
+    "MEMBERSHIP_REQUIRED" -> "تغییر غذا با عضویت فعال ممکن است؛ از «حساب من» عضویت را فعال کن."
+    "meal_date_not_current" -> "فقط وعده‌های امروز قابل تغییرند؛ صفحه را تازه کن."
+    "meal_option_not_found" -> "این گزینه دیگر در برنامه نیست؛ صفحه را تازه کن."
     "unsupported_action" -> "این قابلیت هنوز روی سرور فعال نشده است."
-    "ai_temporarily_disabled" -> "ساخت هوشمند برنامه فعلاً در دسترس نیست."
+    "ai_temporarily_disabled", "ai_circuit_open", "ai_circuit_breaker_unavailable", "AI_PROVIDER_NOT_CONFIGURED" ->
+        "ساخت برنامه الان در دسترس نیست. پاسخ‌هایت ذخیره شده است؛ کمی بعد دوباره امتحان کن."
     "session_expired" -> "مدتی است وارد نشده‌ای؛ برای امنیت دوباره وارد شو."
     "not_configured" -> "این نسخه از اپ به سرور وصل نیست (momentum.properties خالی بود)."
     else -> when (kind) {

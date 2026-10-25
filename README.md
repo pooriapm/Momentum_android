@@ -35,8 +35,9 @@ Answers use the website's keys and are saved after every screen to the same
 professional (urgent symptoms, pregnancy, eating-disorder risk, high-risk conditions)
 stop automatic planning, as on the website.
 
-Not in the app yet (still on the website): importing an outside plan and uploading a
-body-composition report.
+Every plan is made by the plan generator. When the server cannot generate right now, the app
+says so and offers a retry; it never substitutes a stand-in plan. There is no "bring your own
+plan" import. Uploading a body-composition report is still website-only.
 
 ### Design system
 

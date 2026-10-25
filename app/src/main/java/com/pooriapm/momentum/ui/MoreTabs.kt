@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.automirrored.outlined.EventNote
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -74,7 +75,7 @@ import com.pooriapm.momentum.data.Dashboard
 import com.pooriapm.momentum.ui.components.InfoCard
 
 @Composable
-fun ProgressTab(dashboard: Dashboard) {
+fun ProgressTab(state: AppState, dashboard: Dashboard) {
     val series = dashboard.progressSeries
     val weights = dashboard.recentCheckins.filter { it.weightKg != null }.sortedBy { it.localDate }
     val list = rememberLazyListState()
@@ -83,14 +84,16 @@ fun ProgressTab(dashboard: Dashboard) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("روندی که ساخته‌ای", style = MaterialTheme.typography.headlineSmall)
-                    Text("نمره نیست؛ هر هفته با هفته قبلش مقایسه می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("گزارش پیشرفت", style = MaterialTheme.typography.headlineSmall)
+                    Text("ثبت‌های شما در هر هفتهٔ برنامه", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 GuideInfoButton(Guides.progress, list)
             }
         }
+        item { WeeklyReview(state, dashboard, Modifier.guideTarget("progress_review")) }
+        item { LearningCard(state) }
         item {
-            InfoCard("پایبندی هفتگی", Modifier.guideTarget("progress_weekly")) {
+            InfoCard("روند هفته‌ها", Modifier.guideTarget("progress_weekly")) {
                 if (series.isEmpty()) {
                     Text("بعد از چند روز ثبت وعده و تمرین، نمودارت اینجا ساخته می‌شود.")
                 } else {
@@ -163,6 +166,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     fun open(path: String, title: String) { page = "${BuildConfig.SITE_URL.trimEnd('/')}/fa$path" to title }
     var buying by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
+    var cycleOpen by rememberSaveable { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     // "Add to home screen" for the widget, where the launcher supports it (Android 8+).
     val canPinWidget = remember {
@@ -210,6 +214,9 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
                 }
             }
         }
+        if (cycleEnabled()) item {
+            SettingsGroup { SettingsRow(Icons.AutoMirrored.Outlined.EventNote, "ثبت چرخه (اختیاری)", last = true) { cycleOpen = true } }
+        }
         item { SettingsGroup(Modifier.guideTarget("me_lite")) { LiteModeRow(state) } }
         item { Box(Modifier.guideTarget("me_reminders")) { ReminderSettingsCard(state) } }
         item {
@@ -237,6 +244,7 @@ fun MeTab(state: AppState, dashboard: Dashboard, billing: BazaarBilling) {
     }
     page?.let { (url, title) -> InAppPage(url, title) { page = null } }
     if (editing) PreferencesScreen(state) { editing = false }
+    if (cycleOpen) CycleSheet(state) { cycleOpen = false }
 }
 
 /** Where a membership stands right now. */
@@ -477,11 +485,14 @@ fun NoPlanTab(state: AppState, dashboard: Dashboard) {
                     Button(onClick = state::generatePlan, enabled = !state.generating, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                         if (state.generating) CircularProgressIndicator(strokeWidth = 2.dp) else Text(if (lastPlan != null) "ساخت برنامه ماه بعد" else "ساخت برنامه")
                     }
+                    state.planUnavailable?.takeIf { !state.generating }?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                    }
                     if (state.generating) Text("معمولاً یکی دو دقیقه طول می‌کشد. می‌توانی برنامه را ببندی؛ کار ادامه دارد.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        item { PlanHistoryCard(dashboard.planHistory) }
+        item { PlanHistoryCard(dashboard.planHistory, minItems = 1) }
     }
 }
