@@ -66,10 +66,10 @@ import com.pooriapm.momentum.ui.components.LiquidSelector
 import com.pooriapm.momentum.ui.theme.LocalGlow
 import com.pooriapm.momentum.ui.theme.hueBackground
 
-/** Bigger units once amounts get large: 1250 g → 1.3 kg, 1500 ml → 1.5 liters. */
+/** Bigger units once amounts get large, rounded up for buying: 1250 g → 1.3 kg, 1500 ml → 1.5 liters. */
 fun shoppingAmount(amount: Double, unit: String): String = when {
-    unit == "g" && amount >= 1000 -> "${(amount / 1000).faDecimal()} کیلوگرم"
-    unit == "ml" && amount >= 1000 -> "${(amount / 1000).faDecimal()} لیتر"
+    unit == "g" && amount >= 1000 -> "${(kotlin.math.ceil(amount / 100 - 1e-9) / 10).faDecimal()} کیلوگرم"
+    unit == "ml" && amount >= 1000 -> "${(kotlin.math.ceil(amount / 100 - 1e-9) / 10).faDecimal()} لیتر"
     else -> "${amount.faDecimal()} ${unitLabel(unit)}"
 }
 
@@ -80,7 +80,7 @@ fun ShoppingEntry(state: AppState, plan: Plan, today: String) {
     var open by rememberSaveable { mutableStateOf(false) }
     val purchases = state.shopping
     val week = purchases?.let { weekWindow(plan, today, it) }
-    val lines = if (purchases != null && week != null) shoppingLines(plan, today, week, purchases) else emptyList()
+    val lines = if (purchases != null && week != null) shoppingLines(plan, today, week, purchases, state.sharedCooks) else emptyList()
     val left = lines.count { !it.covered }
 
     Card(
@@ -125,7 +125,7 @@ private fun ShoppingSheet(state: AppState, plan: Plan, today: String, onDismiss:
     val scope = if (scopeIndex == 0) ShoppingScope.Week else ShoppingScope.Plan
     val purchases = state.shopping.orEmpty()
     val window = if (scope == ShoppingScope.Week) weekWindow(plan, today, purchases) else planWindow(plan, today)
-    val lines = shoppingLines(plan, today, window, purchases)
+    val lines = shoppingLines(plan, today, window, purchases, state.sharedCooks)
     val toBuy = lines.filterNot { it.covered }
     val covered = lines.filter { it.covered }
     var showCovered by rememberSaveable { mutableStateOf(false) }
@@ -147,7 +147,8 @@ GuideHost(Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
                                 Text("فهرست خرید", style = MaterialTheme.typography.headlineSmall)
                                 Text(
-                                    "${jalaliLabel(window.start.coerceAtLeast(today))} تا ${jalaliLabel(window.end)} · برای یک نفر",
+                                    "${jalaliLabel(window.start.coerceAtLeast(today))} تا ${jalaliLabel(window.end)}" +
+                                        if (lines.any { it.sharedInWindow > 0 }) " · سهم شما و پخت مشترک" else " · برای یک نفر",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -234,6 +235,10 @@ private fun ShoppingRow(line: ShoppingLine, checked: Boolean, busy: Boolean, onT
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f).graphicsLayer { this.alpha = alpha }) {
             Text(line.name, style = MaterialTheme.typography.bodyLarge, textDecoration = if (checked) TextDecoration.LineThrough else null)
+            if (line.sharedInWindow > 0) {
+                Text("شامل ${shoppingAmount(line.sharedInWindow, line.unit)} برای پخت مشترک",
+                    style = MaterialTheme.typography.labelSmall, color = colors.tertiary)
+            }
             line.coveredUntil?.let {
                 Text(if (checked) "کافی تا ${jalaliLabel(it)}" else "موجودی تا ${jalaliLabel(it)}",
                     style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)

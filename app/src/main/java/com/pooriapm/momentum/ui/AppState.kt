@@ -15,6 +15,8 @@ import com.pooriapm.momentum.data.Meal
 import com.pooriapm.momentum.data.ShoppingPurchase
 import com.pooriapm.momentum.data.WorkoutSession
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.builtins.ListSerializer
+import com.pooriapm.momentum.data.json
 import com.pooriapm.momentum.data.asApi
 import com.pooriapm.momentum.data.findMeal
 import com.pooriapm.momentum.data.withMeal
@@ -36,8 +38,17 @@ sealed interface Screen {
     data object Home : Screen
 }
 
-/** A message for the user; [retry] is offered as an action when trying again can help. */
-data class UiMessage(val text: String, val retry: (() -> Unit)? = null, val isError: Boolean = true)
+/**
+ * A message for the user; [retry] is offered as an action when trying again can help. [action]
+ * (with [actionLabel]) is another one-tap follow-up, such as undoing what was just saved.
+ */
+data class UiMessage(
+    val text: String,
+    val retry: (() -> Unit)? = null,
+    val isError: Boolean = true,
+    val actionLabel: String? = null,
+    val action: (() -> Unit)? = null,
+)
 
 class AppState(
     val api: Api,
@@ -124,6 +135,63 @@ class AppState(
         private set
     private var shoppingPlan: String? = null
 
+    /** Shared cooks of the active plan version, saved on this phone (see SharedCook.kt). */
+    var sharedCooks by mutableStateOf<List<SharedCook>>(emptyList())
+        private set
+    private var sharedCookPlan: String? = null
+
+    private fun planVersionKey(): String? = dashboard?.plan?.let { it.versionId ?: "${it.validFrom}:${it.name}" }
+
+    private fun loadSharedCooks() {
+        val version = planVersionKey()
+        if (version == sharedCookPlan) return
+        sharedCookPlan = version
+        sharedCooks = version?.let { v ->
+            local?.getString("shared_cook:$v", null)?.let { raw ->
+                runCatching { json.decodeFromString(ListSerializer(SharedCook.serializer()), raw) }.getOrNull()
+            }
+        }.orEmpty()
+    }
+
+    private fun storeSharedCooks(next: List<SharedCook>) {
+        val version = planVersionKey() ?: return
+        sharedCooks = next
+        local?.edit()?.putString("shared_cook:$version", json.encodeToString(ListSerializer(SharedCook.serializer()), next))?.apply()
+    }
+
+    /** Saves (or replaces) the shared cook of one meal; the snackbar can put the previous state back. */
+    fun saveSharedCook(cook: SharedCook) {
+        loadSharedCooks()
+        val before = sharedCooks
+        val same = before.firstOrNull { it.date == cook.date && it.slotKey == cook.slotKey }
+        if (same == cook) return // a repeated tap changes nothing
+        val after = before.filterNot { it.date == cook.date && it.slotKey == cook.slotKey } + cook
+        storeSharedCooks(after)
+        message = UiMessage(
+            if (same == null) "پخت مشترک ثبت شد: ${cook.portions.fa()} سهم. فهرست خرید به‌روز شد." else "پخت مشترک به ${cook.portions.fa()} سهم تغییر کرد.",
+            isError = false, actionLabel = "برگرداندن", action = { restoreSharedCooks(before, after) },
+        )
+    }
+
+    fun removeSharedCook(cook: SharedCook) {
+        loadSharedCooks()
+        val before = sharedCooks
+        if (cook !in before) return
+        val after = before - cook
+        storeSharedCooks(after)
+        message = UiMessage("پخت مشترک لغو شد. فهرست خرید به سهم شما برگشت.", isError = false,
+            actionLabel = "برگرداندن", action = { restoreSharedCooks(before, after) })
+    }
+
+    /** Undo puts back exactly what was there, only if nothing else changed in between. */
+    private fun restoreSharedCooks(previous: List<SharedCook>, expected: List<SharedCook>) {
+        if (sharedCooks != expected) {
+            message = UiMessage("پخت مشترک بعد از آن دوباره تغییر کرده است؛ برگرداندن انجام نشد.")
+            return
+        }
+        storeSharedCooks(previous)
+    }
+
     private var lastLoadedAt = 0L
     private var refreshJob: Job? = null
     private var autoRetries = 0
@@ -205,6 +273,7 @@ class AppState(
                 val previousDate = dashboard?.localDate
                 dashboard = api.dashboard().also(::route)
                 loadWater()
+                loadSharedCooks()
                 if (previousDate != dashboard?.localDate) {
                     workout = null
                     workoutLoaded = false

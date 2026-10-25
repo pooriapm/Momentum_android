@@ -28,6 +28,7 @@ data class ShoppingLine(
     val needInWindow: Double, // what the window's meals use
     val toBuy: Double,        // still to buy for the window, already rounded to a sensible step
     val coveredUntil: String?, // last plan day the stock covers, when it covers at least today
+    val sharedInWindow: Double = 0.0, // part of needInWindow that is for a shared cook, not the user
 ) {
     val covered get() = toBuy <= 0.0
 }
@@ -64,23 +65,38 @@ private data class ItemInfo(val itemKey: String, val name: String, val unit: Str
 private fun itemKeyOf(name: String, ingredientId: String?) =
     ingredientId?.takeIf { it.isNotBlank() }?.let { "ingredient:$it" } ?: "name:${name.trim()}"
 
-/** Daily need per item (key = item_key|unit) across the whole plan, from each meal's chosen option. */
-private fun dailyNeeds(plan: Plan): Pair<Map<String, ItemInfo>, Map<String, Map<String, Double>>> {
+private class Needs(
+    val info: Map<String, ItemInfo>,
+    val total: Map<String, Map<String, Double>>,  // key -> date -> amount
+    val shared: Map<String, Map<String, Double>>, // the shared-cook part of total
+)
+
+/**
+ * Daily need per item (key = item_key|unit) across the whole plan, from each meal's chosen option.
+ * A shared cook replaces that meal's personal need once with personal × portions.
+ */
+private fun dailyNeeds(plan: Plan, cooks: List<SharedCook>): Needs {
     val info = LinkedHashMap<String, ItemInfo>()
-    val needs = HashMap<String, MutableMap<String, Double>>() // key -> date -> amount
+    val needs = HashMap<String, MutableMap<String, Double>>()
+    val shared = HashMap<String, MutableMap<String, Double>>()
     plan.days.forEach { day ->
         day.meals.forEach { meal ->
+            val extra = (cooks.activeFor(meal, day.localDate)?.portions ?: 1) - 1
             meal.chosenOption?.ingredients?.forEach { ingredient ->
                 val unit = ingredient.unit.lowercase()
                 val itemKey = itemKeyOf(ingredient.name, ingredient.ingredientId)
                 val key = "$itemKey|$unit"
                 info.putIfAbsent(key, ItemInfo(itemKey, ingredient.name.trim(), unit))
                 val perDay = needs.getOrPut(key) { HashMap() }
-                perDay[day.localDate] = (perDay[day.localDate] ?: 0.0) + ingredient.amount
+                perDay[day.localDate] = (perDay[day.localDate] ?: 0.0) + ingredient.amount * (1 + extra)
+                if (extra > 0) {
+                    val sharedDay = shared.getOrPut(key) { HashMap() }
+                    sharedDay[day.localDate] = (sharedDay[day.localDate] ?: 0.0) + ingredient.amount * extra
+                }
             }
         }
     }
-    return info to needs
+    return Needs(info, needs, shared)
 }
 
 /** Whole units for countable things (you cannot buy 2.3 bananas), whole grams/ml, else one decimal. */
@@ -91,8 +107,12 @@ fun roundUp(amount: Double, unit: String): Double = when {
     else -> ceil(amount * 10 - 1e-9) / 10
 }
 
-fun shoppingLines(plan: Plan, today: String, window: ShoppingWindow, purchases: List<ShoppingPurchase>): List<ShoppingLine> {
-    val (info, needs) = dailyNeeds(plan)
+fun shoppingLines(
+    plan: Plan, today: String, window: ShoppingWindow, purchases: List<ShoppingPurchase>, cooks: List<SharedCook> = emptyList(),
+): List<ShoppingLine> {
+    val all = dailyNeeds(plan, cooks)
+    val info = all.info
+    val needs = all.total
     val bought = purchases.groupBy { "${it.itemKey}|${it.unit.lowercase()}" }.mapValues { (_, p) -> p.sumOf { it.amount } }
     val dates = plan.days.map { it.localDate }.sorted()
     return info.mapNotNull { (key, item) ->
@@ -111,7 +131,8 @@ fun shoppingLines(plan: Plan, today: String, window: ShoppingWindow, purchases: 
             left -= use
             coveredUntil = d
         }
-        ShoppingLine(key, item.itemKey, item.name, item.unit, needInWindow, toBuy, coveredUntil)
+        val sharedInWindow = all.shared[key].orEmpty().filterKeys { it >= today && it <= window.end }.values.sum()
+        ShoppingLine(key, item.itemKey, item.name, item.unit, needInWindow, toBuy, coveredUntil, sharedInWindow)
     }.sortedWith(compareBy({ it.covered }, { it.name }))
 }
 

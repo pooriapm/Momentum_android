@@ -78,45 +78,44 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
     LaunchedEffect(dashboard.localDate, day.workout != null) { if (day.workout != null) state.loadWorkout() }
     val done = day.meals.filter { it.completionStatus == "completed" }
     val eaten = done.sumOf { it.chosenOption?.nutrition?.calories ?: 0.0 }
+    val protein = done.sumOf { it.chosenOption?.nutrition?.proteinG ?: 0.0 }
     val next = day.meals.firstOrNull { it.completionStatus == "planned" }
 
     val list = rememberLazyListState()
     GuideOnFirstVisit(Guides.home, list)
     LazyColumn(state = list, contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("سلام، ${dashboard.profile.displayName}", style = MaterialTheme.typography.headlineMedium)
+            Box(Modifier.guideTarget("home_orbit")) {
+                OrbitHero(
+                    title = "امروز",
+                    subtitle = "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${dayTitle(day.title)?.let { " · $it" } ?: ""}",
+                    period = "برنامهٔ امروز",
+                    rings = todayRings(state, day),
+                    footer = "${eaten.faRounded()} از ${day.targets.calories.faRounded()} کالری · پروتئین ${protein.faRounded()} از ${day.targets.proteinG.faRounded()} گرم، از وعده‌های ثبت‌شده",
+                )
+            }
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.guideTarget("home_next")) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("قدم بعدی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "${jalaliLabel(day.localDate)} · روز ${(day.dayIndex + 1).fa()} از ۳۰${dayTitle(day.title)?.let { " · $it" } ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        when {
+                            next != null -> "${next.title}${next.scheduledTime?.let { " · ساعت ${it.fa()}" } ?: ""}: ${next.chosenOption?.title.orEmpty()}"
+                            day.workout != null && state.workout?.status != "completed" -> "وعده‌های امروز ثبت شده‌اند؛ تمرین امروز مانده است."
+                            else -> "برنامهٔ امروز کامل شد."
+                        },
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 GuideInfoButton(Guides.home, list)
             }
         }
-        item { Box(Modifier.guideTarget("home_streak")) { StreakCard(dashboard) } }
-        item { Box(Modifier.guideTarget("home_targets")) { TargetCard(eaten, day.targets.calories, day.targets.proteinG, day.targets.carbsG, day.targets.fatG, done.size, day.meals.size) } }
-        item {
-            ElevatedCard(Modifier.fillMaxWidth().guideTarget("home_next")) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("قدم بعدی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        when {
-                            next != null -> "${next.title}${next.scheduledTime?.let { " · ساعت ${it.fa()}" } ?: ""}: ${next.chosenOption?.title.orEmpty()}"
-                            day.workout != null && state.workout?.status != "completed" -> "وعده‌ها کامل شد؛ تمرین امروز مانده."
-                            else -> "آفرین، برنامه امروز کامل شد."
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-            }
-        }
-        item { Box(Modifier.guideTarget("home_water")) { WaterCard(state, (day.targets.waterMl ?: 2200.0).toInt()) } }
+        item { Box(Modifier.guideTarget("home_water")) { WaterCard(state, day.targets.waterMl?.toInt()) } }
         // The workout has its own section above the meals, so it is not lost at the end of the list.
         item { Text("تمرین امروز", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp)) }
         day.workout?.let { workout -> item { Box(Modifier.guideTarget("home_workout")) { WorkoutCard(workout) { WorkoutAction(state) { runnerOpen = true } } } } }
-            ?: item { InfoCard("امروز روز استراحت است") { Text("بدن در روزهای استراحت قوی‌تر می‌شود. پیاده‌روی سبک کافی است.") } }
+            ?: item { InfoCard("روز استراحت") { Text("برای امروز تمرینی برنامه‌ریزی نشده است.") } }
         item { PlanEndingCard(state, dashboard) { prefsOpen = true } }
         item { Box(Modifier.guideTarget("home_checkin")) { CheckinCard(dashboard.checkin != null) { checkinOpen = true } } }
         item {
@@ -147,43 +146,11 @@ fun TodayTab(state: AppState, dashboard: Dashboard, openMembership: () -> Unit) 
 }
 
 @Composable
-private fun TargetCard(eaten: Double, target: Double, protein: Double, carbs: Double, fat: Double, mealsDone: Int, mealsTotal: Int) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(eaten.faRounded(), style = MaterialTheme.typography.displaySmall)
-                Text(" از ${target.faRounded()} کالری", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 6.dp))
-            }
-            LinearProgressIndicator(
-                progress = { (eaten / target).toFloat().coerceIn(0f, 1f) },
-                // Neutral track: the M3 default (secondaryContainer) reads as dark red in dark mode.
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Macro("پروتئین", protein)
-                Macro("کربوهیدرات", carbs)
-                Macro("چربی", fat)
-            }
-            Text("${mealsDone.fa()} از ${mealsTotal.fa()} وعده ثبت شده", style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-private fun Macro(label: String, grams: Double) {
-    Column {
-        Text("${grams.faRounded()} گرم", style = MaterialTheme.typography.titleMedium)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
 private fun CheckinCard(done: Boolean, onOpen: () -> Unit) {
     OutlinedCardRow(
         icon = if (done) Icons.Outlined.CheckCircle else Icons.Outlined.WbSunny,
         title = if (done) "گزارش امروز ثبت شد" else "گزارش روزانه",
-        subtitle = if (done) "می‌توانی دوباره ویرایشش کنی." else "انرژی، خواب و حالت؛ کمتر از یک دقیقه.",
+        subtitle = if (done) "قابل ویرایش است." else "انرژی، خواب و حال امروز",
         onClick = onOpen,
     )
 }
@@ -232,6 +199,9 @@ fun MealCard(state: AppState, meal: Meal, localDate: String, editable: Boolean =
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(meal.title, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                    state.sharedCooks.activeFor(meal, localDate)?.let {
+                        Text("پخت مشترک · ${it.portions.fa()} سهم", style = MaterialTheme.typography.labelMedium, color = colors.tertiary)
+                    }
                     option?.let {
                         Text(
                             it.title,
@@ -419,4 +389,37 @@ private fun WorkoutAction(state: AppState, open: () -> Unit) {
             if (state.workoutBusy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp)) else Text("شروع تمرین")
         }
     }
+}
+
+/** Today's three rings: meals, workout and water, all for today only. */
+private fun todayRings(state: AppState, day: com.pooriapm.momentum.data.PlanDay): List<OrbitRing> {
+    val meals = day.meals
+    val eatenCount = meals.count { it.completionStatus == "completed" }
+    val skipped = meals.count { it.completionStatus == "skipped" }
+    val food = if (meals.isEmpty()) RingState.Unknown("وعده‌ای در برنامه نیست")
+    else RingState.Progress(
+        eatenCount.toDouble(), meals.size.toDouble(),
+        "${eatenCount.fa()} از ${meals.size.fa()} وعده" + if (skipped > 0) " · ${skipped.fa()} رد شده" else "",
+    )
+    val session = state.workout
+    val training = when {
+        day.workout == null -> RingState.Rest("روز استراحت")
+        session?.status == "completed" -> RingState.Progress(1.0, 1.0, "انجام شد")
+        session != null -> {
+            val total = session.exercises.size.coerceAtLeast(1)
+            val doneEx = session.exercises.count { it.status == "completed" || it.status == "skipped" }
+            RingState.Progress(doneEx.toDouble(), total.toDouble(),
+                if (session.status == "stopped") "متوقف شد" else "${doneEx.fa()} از ${total.fa()} حرکت")
+        }
+        state.workoutLoaded -> RingState.Progress(0.0, 1.0, "شروع نشده")
+        else -> RingState.Unknown("نامعلوم")
+    }
+    val target = day.targets.waterMl
+    val water = if (target == null || target <= 0) RingState.Unknown("هدفی تعیین نشده")
+    else RingState.Progress(state.waterMl.toDouble(), target, "${(state.waterMl / 1000.0).faDecimal()} از ${(target / 1000.0).faDecimal()} لیتر")
+    return listOf(
+        OrbitRing("وعده‌ها", OrbitColors.Food, food),
+        OrbitRing("تمرین", OrbitColors.Training, training),
+        OrbitRing("آب", OrbitColors.Water, water),
+    )
 }

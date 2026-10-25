@@ -82,11 +82,11 @@ fun HomeScreen(state: AppState, billing: BazaarBilling) {
         val msg = state.message ?: return@LaunchedEffect
         val result = snackbar.showSnackbar(
             message = msg.text,
-            actionLabel = msg.retry?.let { "تلاش دوباره" },
-            withDismissAction = msg.retry == null && msg.isError,
-            duration = if (msg.retry != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            actionLabel = msg.actionLabel ?: msg.retry?.let { "تلاش دوباره" },
+            withDismissAction = msg.retry == null && msg.action == null && msg.isError,
+            duration = if (msg.retry != null || msg.action != null) SnackbarDuration.Long else SnackbarDuration.Short,
         )
-        if (result == SnackbarResult.ActionPerformed) msg.retry?.invoke()
+        if (result == SnackbarResult.ActionPerformed) (msg.action ?: msg.retry)?.invoke()
         if (state.message == msg) state.message = null
     }
 

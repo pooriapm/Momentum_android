@@ -88,115 +88,19 @@ private val FlameCore = Color(0xFFFFC94D)
 private val WaterBlue = Color(0xFF3DA5F4)
 private val WaterLight = Color(0xFF9AD3FF)
 
-// ---------------------------------------------------------------- Streak
-
-/**
- * Days in a row with something logged: a daily report, or (today) a ticked meal. A day not yet
- * logged today does not break the streak until it is over.
- */
-fun streakDays(dashboard: Dashboard): Pair<Int, Boolean> {
-    val today = runCatching { LocalDate.parse(dashboard.localDate) }.getOrNull() ?: return 0 to false
-    val logged = dashboard.recentCheckins.mapNotNull { runCatching { LocalDate.parse(it.localDate) }.getOrNull() }.toMutableSet()
-    val todayDone = dashboard.checkin != null || dashboard.plan?.day?.meals?.any { it.completionStatus == "completed" } == true
-    if (todayDone) logged += today
-    var day = if (todayDone) today else today.minusDays(1)
-    var count = 0
-    while (day in logged) {
-        count++
-        day = day.minusDays(1)
-    }
-    return count to todayDone
-}
-
-@Composable
-fun StreakCard(dashboard: Dashboard) {
-    val (days, todayDone) = streakDays(dashboard)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AnimatedFlame(lit = days > 0, modifier = Modifier.size(44.dp), key = days)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    AnimatedContent(
-                        days,
-                        transitionSpec = { (slideInVertically { -it } + fadeIn()).togetherWith(slideOutVertically { it } + fadeOut()) },
-                        label = "streak",
-                    ) { n ->
-                        Text(n.fa(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                            color = if (n > 0) Flame else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(" روز پشت‌سرهم", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 3.dp))
-                }
-                Text(
-                    when {
-                        days == 0 -> "امروز یک وعده یا گزارش ثبت کن تا شعله روشن شود."
-                        !todayDone -> "امروز هنوز چیزی ثبت نکرده‌ای؛ زنجیره را نگه دار."
-                        days >= 7 -> "حرکتت راه افتاده؛ همین را ادامه بده."
-                        else -> "هر روز یک قدم؛ زنجیره دارد بلند می‌شود."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/** A small flame that flickers and sways; grey and still when the streak is out. */
-@Composable
-fun AnimatedFlame(lit: Boolean, modifier: Modifier = Modifier, key: Any? = null) {
-    // A few flickers, then still: an endless animation would redraw the whole screen (and the
-    // glass tab bar behind it) every frame, for nothing.
-    val tAnim = remember { Animatable(0f) }
-    val still = LocalPerf.current.reduceMotion
-    LaunchedEffect(lit, key) {
-        if (lit && !still) {
-            tAnim.snapTo(0f)
-            tAnim.animateTo(3f, tween(4200, easing = LinearEasing))
-        }
-    }
-    val t = tAnim.value % 1f
-    val grow by animateFloatAsState(if (lit) 1f else 0.7f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessLow), label = "grow")
-    val grey = MaterialTheme.colorScheme.outlineVariant
-    Canvas(modifier.scale(grow).semantics { contentDescription = if (lit) "شعله روشن" else "شعله خاموش" }) {
-        val w = size.width
-        val h = size.height
-        val phase = t * 2 * PI.toFloat()
-        val calm = (1f - (tAnim.value / 3f)).coerceIn(0.25f, 1f)
-        val sway = if (lit) sin(phase) * w * 0.05f * calm else 0f
-        val stretch = if (lit) 1f + sin(phase * 2) * 0.06f * calm else 1f
-        fun flame(scaleW: Float, scaleH: Float): Path = Path().apply {
-            val cx = w / 2
-            val bottom = h * 0.95f
-            val top = bottom - h * 0.85f * scaleH * stretch
-            moveTo(cx, bottom)
-            cubicTo(cx - w * 0.42f * scaleW, bottom, cx - w * 0.38f * scaleW, bottom - h * 0.45f * scaleH, cx - w * 0.12f * scaleW + sway * 0.5f, bottom - h * 0.6f * scaleH)
-            cubicTo(cx - w * 0.05f * scaleW + sway, bottom - h * 0.72f * scaleH, cx + sway, top + h * 0.12f, cx + sway * 1.4f, top)
-            cubicTo(cx + w * 0.18f * scaleW + sway, top + h * 0.2f, cx + w * 0.42f * scaleW, bottom - h * 0.4f * scaleH, cx + w * 0.4f * scaleW, bottom - h * 0.22f * scaleH)
-            cubicTo(cx + w * 0.38f * scaleW, bottom, cx + w * 0.1f, bottom, cx, bottom)
-            close()
-        }
-        if (lit) {
-            drawCircle(Brush.radialGradient(listOf(Flame.copy(alpha = 0.25f), Color.Transparent)), radius = w * 0.55f, center = Offset(w / 2, h * 0.62f))
-            drawPath(flame(1f, 1f), Brush.verticalGradient(listOf(Color(0xFFFF4D1A), Flame, FlameCore), startY = 0f, endY = h))
-            drawPath(flame(0.5f, 0.55f), Brush.verticalGradient(listOf(FlameCore, Color(0xFFFFF3C4)), startY = h * 0.4f, endY = h))
-        } else {
-            drawPath(flame(1f, 1f), grey)
-        }
-    }
-}
-
 // ---------------------------------------------------------------- Water
 
 /** Glasses toward today's water target; tap a glass or "+" to add one, it fills with a wave. */
 @Composable
-fun WaterCard(state: AppState, targetMl: Int) {
+fun WaterCard(state: AppState, target: Int?) {
     val haptics = LocalHapticFeedback.current
-    val glasses = ceil(targetMl / 250.0).toInt().coerceIn(4, 12)
+    // Without a target in the plan the glasses are only a counter: no goal is invented.
+    val targetMl = target ?: Int.MAX_VALUE
+    val glasses = target?.let { ceil(it / 250.0).toInt().coerceIn(4, 12) } ?: 8
     val drunk = state.waterMl
     val full = drunk / 250
     // Celebrate only the moment the last glass fills here, not a target already met on load.
-    val reached = full >= glasses
+    val reached = target != null && full >= glasses
     var wasReached by remember { mutableStateOf(reached) }
     var party by remember { mutableIntStateOf(0) }
     LaunchedEffect(reached) {
@@ -213,8 +117,8 @@ fun WaterCard(state: AppState, targetMl: Int) {
                 Column(Modifier.weight(1f)) {
                     Text("آب امروز", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "${(drunk / 1000.0).faDecimal()} از ${(targetMl / 1000.0).faDecimal()} لیتر" +
-                            if (drunk >= targetMl) " · عالی، رسیدی! 💧" else "",
+                        if (target == null) "${(drunk / 1000.0).faDecimal()} لیتر · هدفی در برنامه نیست"
+                        else "${(drunk / 1000.0).faDecimal()} از ${(target / 1000.0).faDecimal()} لیتر" + if (drunk >= target) " · به هدف رسید" else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (drunk >= targetMl) WaterBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                     )

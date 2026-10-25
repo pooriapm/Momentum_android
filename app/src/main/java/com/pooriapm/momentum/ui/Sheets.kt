@@ -28,6 +28,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Groups
 import com.pooriapm.momentum.data.DailyCheckin
 import com.pooriapm.momentum.data.Meal
 import com.pooriapm.momentum.ui.components.LiquidSelector
@@ -48,6 +50,8 @@ import com.pooriapm.momentum.ui.components.TextAnswer
 @Composable
 fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean, onDismiss: () -> Unit) {
     val option = meal.chosenOption ?: return
+    val today = state.dashboard?.localDate ?: localDate
+    var sharedOpen by rememberSaveable { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
@@ -66,6 +70,7 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
                 Text("مواد لازم", style = MaterialTheme.typography.titleMedium)
                 option.ingredients.forEach { Text("• ${it.name}: ${formatAmount(it.amount)} ${unitLabel(it.unit)}") }
             }
+            SharedCookEntry(state, meal, localDate, today) { sharedOpen = true }
             option.recipe?.let { recipe ->
                 HorizontalDivider()
                 Text("طرز تهیه · ${(recipe.prepMinutes + recipe.cookMinutes).fa()} دقیقه", style = MaterialTheme.typography.titleMedium)
@@ -84,9 +89,32 @@ fun MealSheet(state: AppState, meal: Meal, localDate: String, editable: Boolean,
             }
         }
     }
+    // Saving closes the meal too, so the "undo" message is not hidden under a sheet.
+    if (sharedOpen) SharedCookSheet(state, meal, localDate, today, onDismiss = { sharedOpen = false }, onDone = { sharedOpen = false; onDismiss() })
 }
 
 private fun formatAmount(value: Double): String = value.faDecimal()
+
+/** The meal's way into the shared table: what is planned, or why it is not available. */
+@Composable
+private fun SharedCookEntry(state: AppState, meal: Meal, localDate: String, today: String, onOpen: () -> Unit) {
+    val active = state.sharedCooks.activeFor(meal, localDate)
+    val stale = state.sharedCooks.staleFor(meal, localDate)
+    val blocked = sharedCookBlocker(meal, localDate, today)
+    // A past or unsupported meal with nothing saved has nothing to show here.
+    if (active == null && stale == null && blocked != null && (localDate < today || (meal.chosenOption?.ingredients?.size ?: 0) < 2)) return
+    OutlinedCardRow(
+        icon = Icons.Outlined.Groups,
+        title = "سفرهٔ مشترک",
+        subtitle = when {
+            active != null -> "${active.portions.fa()} سهم برای خانه · سهم شما همان برنامه"
+            stale != null -> "غذای وعده عوض شده است؛ پخت قبلی اعمال نمی‌شود"
+            blocked != null -> blocked
+            else -> "همین غذا را برای خانه بپزید؛ سهم شما ثابت می‌ماند"
+        },
+        onClick = onOpen,
+    )
+}
 
 @Composable
 private fun ScoreQuestion(label: String, low: String, high: String, value: Int, backdrop: Backdrop, onChange: (Int) -> Unit) {
